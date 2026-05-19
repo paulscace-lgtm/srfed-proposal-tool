@@ -287,25 +287,37 @@
 
   /* ── STEP LOCK ── */
   .step-locked { position: relative; pointer-events: none; }
-  .step-locked::after {
+  /* Grey overlay covers only the body area — starts below the header */
+  .step-locked .card-body { position: relative; }
+  .step-locked .card-body::after {
     content: '';
     position: absolute; inset: 0;
-    background: rgba(240,244,248,0.72);
-    border-radius: 10px;
+    background: rgba(235,240,248,0.82);
+    border-radius: 0 0 10px 10px;
     pointer-events: all;
     z-index: 10;
   }
-  /* Lock icon centered over the card body, not the header */
+  /* Lock message sits above the overlay, centered in the body */
   .step-locked .lock-msg {
     position: absolute;
-    top: calc(50% + 24px); /* offset down past the header */
-    left: 50%;
+    top: 50%; left: 50%;
     transform: translate(-50%, -50%);
-    z-index: 11;
+    z-index: 12;
+    text-align: center;
     pointer-events: none;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
   }
-  .step-locked .lock-msg .lock-icon { font-size: 32px; }
-  .step-locked .lock-msg .lock-text { display: none; }
+  .step-locked .lock-msg .lock-icon { font-size: 32px; line-height: 1; }
+  .step-locked .lock-msg .lock-text {
+    font-size: 13px; font-weight: 700;
+    color: var(--blue-gray);
+    white-space: nowrap;
+    background: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
 
   /* ── ASSUMPTION CARDS ── */
   .assumption-panel { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
@@ -439,12 +451,11 @@
 
     <!-- Step 2: SharePoint -->
     <div class="card step-locked" id="step2Card">
-      <div class="lock-msg"><span class="lock-icon">🔒</span><span class="lock-text">Complete Step 1 first</span></div>
       <div class="card-header"><span class="icon">🔗</span> Step 2: Connect SharePoint</div>
       <div class="card-body">
+        <div class="lock-msg"><span class="lock-icon">🔒</span><span class="lock-text">Complete Step 1 to unlock</span></div>
         <div id="spSignedOut" style="text-align:center;padding:24px 0;color:var(--muted)">
-          <div style="font-size:32px;margin-bottom:10px">🔒</div>
-          <div style="font-size:13px">Complete Step 1 to unlock SharePoint folder selection.</div>
+          <div style="font-size:13px;color:var(--muted)">Sign in with Microsoft to connect SharePoint folders.</div>
         </div>
         <div id="spSignedIn" style="display:none">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:8px 12px;background:var(--success-bg);border:1px solid #86efac;border-radius:6px">
@@ -472,9 +483,9 @@
 
   <!-- ── ROW 2: Step 3 (two drop zones) ──────────────────────────────────── -->
   <div class="card step-locked" id="step3Card" style="margin-bottom:24px">
-    <div class="lock-msg"><span class="lock-icon">🔒</span><span class="lock-text">Complete Step 1 first</span></div>
     <div class="card-header"><span class="icon">📁</span> Step 3: Drop Documents</div>
     <div class="card-body">
+      <div class="lock-msg"><span class="lock-icon">🔒</span><span class="lock-text">Complete Step 1 to unlock</span></div>
       <div class="two-col" style="gap:20px">
 
         <!-- Left: RFP / PWS documents -->
@@ -508,9 +519,9 @@
 
   <!-- ── ROW 3: Step 4 (Analyze + Review) full width ─────────────────────── -->
   <div class="card step-locked" id="step4Card" style="margin-bottom:24px">
-    <div class="lock-msg"><span class="lock-icon">🔒</span><span class="lock-text">Drop RFP documents in Step 3 first</span></div>
     <div class="card-header"><span class="icon">🔍</span> Step 4: Analyze &amp; Confirm Assumptions</div>
     <div class="card-body">
+      <div class="lock-msg"><span class="lock-icon">🔒</span><span class="lock-text">Drop RFP documents in Step 3 to unlock</span></div>
       <p style="font-size:14px;color:var(--muted);margin-bottom:18px">Claude will analyze your documents and surface its assumptions. Review each one — accept, reject, or correct before writing begins. Rejected assumptions will be excluded from the proposal.</p>
       <button class="btn btn-primary" id="analyzeBtn" onclick="runAnalysis()" disabled>
         <span id="analyzeBtnIcon">🔍</span>
@@ -551,9 +562,9 @@
 
     <!-- Step 5: Additional Notes -->
     <div class="card step-locked" id="step5Card">
-      <div class="lock-msg"><span class="lock-icon">🔒</span><span class="lock-text">Complete Step 4 first</span></div>
       <div class="card-header"><span class="icon">📝</span> Step 5: Additional Notes for Claude</div>
       <div class="card-body">
+        <div class="lock-msg"><span class="lock-icon">🔒</span><span class="lock-text">Complete Step 4 to unlock</span></div>
         <div class="form-group" style="margin-bottom:0">
           <textarea id="additionalNotes" style="min-height:140px" placeholder="Optional: teaming partners, specific focus areas, past performance to emphasize, unique qualifications, or any other context you want Claude to consider..."></textarea>
         </div>
@@ -563,9 +574,9 @@
 
     <!-- Step 6: Select Volumes + Generate -->
     <div class="card step-locked" id="step6Card">
-      <div class="lock-msg"><span class="lock-icon">🔒</span><span class="lock-text">Complete Step 4 first</span></div>
       <div class="card-header"><span class="icon">🚀</span> Step 6: Select Volumes &amp; Generate</div>
       <div class="card-body">
+        <div class="lock-msg"><span class="lock-icon">🔒</span><span class="lock-text">Complete Step 4 to unlock</span></div>
         <div class="volumes-grid" style="margin-bottom:16px">
           <label class="vol-check checked" id="volCheck1"><input type="checkbox" id="vol1" checked/> Vol I – Technical</label>
           <label class="vol-check checked" id="volCheck2"><input type="checkbox" id="vol2" checked/> Vol II – Past Performance</label>
