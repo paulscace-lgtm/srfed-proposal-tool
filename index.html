@@ -40,30 +40,19 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--gray); color: var(--text); min-height: 100vh; }
 
-  /* ── HEADER ── */
   .app-header {
     background: #005FD5;
     color: white;
     padding: 0 32px;
     display: flex;
     align-items: center;
-    height: 64px;
+    height: 72px;
     gap: 16px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   }
-  .app-header .logo-text { font-size: 18px; font-weight: 700; letter-spacing: .5px; }
-  .app-header .tagline { font-size: 12px; opacity: 0.75; margin-top: 2px; }
-  .header-left { display: flex; flex-direction: column; }
-  .header-badge {
-    margin-left: auto;
-    background: rgba(255,255,255,0.15);
-    border: 1px solid rgba(255,255,255,0.3);
-    border-radius: 20px;
-    padding: 4px 14px;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: .3px;
-  }
+  .app-header .logo-img { height: 48px; width: auto; flex-shrink: 0; }
+  .app-header .logo-text { font-size: 24px; font-weight: 700; letter-spacing: .3px; }
+  .header-left { display: flex; align-items: center; gap: 14px; }
 
   /* ── MS LOGIN PILL ── */
   .ms-login-btn {
@@ -301,24 +290,10 @@
 
 <header class="app-header">
   <div class="header-left">
+    <img class="logo-img" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAAgCAYAAABHA7voAAABCGlDQ1BJQ0MgUHJvZmlsZQAAeJxjYGA8wQAELAYMDLl5JUVB7k4KEZFRCuwPGBiBEAwSk4sLGHADoKpv1yBqL+viUYcLcKakFicD6Q9ArFIEtBxopAiQLZIOYWuA2EkQtg2IXV5SUAJkB4DYRSFBzkB2CpCtkY7ETkJiJxcUgdT3ANk2uTmlyQh3M/Ck5oUGA2kOIJZhKGYIYnBncAL5H6IkfxEDg8VXBgbmCQixpJkMDNtbGRgkbiHEVBYwMPC3MDBsO48QQ4RJQWJRIliIBYiZ0tIYGD4tZ2DgjWRgEL7AwMAVDQsIHG5TALvNnSEfCNMZchhSgSKeDHkMyQx6QJYRgwGDIYMZAKbWPz9HbOBQAAAEG0lEQVR42u2YW2xUVRSGv33OmVvbaTsdepnepu0USy8xUJRCBDWKELwAD8RbgsYHefBNjImXaIgPGn3SR02MJmqosQnEYFGI2AbFIlhDBLG0g/Q2GaaX6XTotD0zZ28fJq2+msw0Q+1K9ss5Z+fk3//aa/3rF0opxSoOjVUeawDXAP6HUCq9VjKMlfyZEKuUQSnTzJ0PJrgaWkQBUq0SgFKBJRVCwJvHJ/iwJ4oAUpZErgDKrAK0JGgCbIagbyjBqXMxPuqZYfpWCruhoWki6yBFthq9VGlwvQNzdP4UY2I2RXmxgSkFz2x1cq2/h7aWJjraW1BKIbJ0QbMC0JKga/D6V2GGIiaHd6+jozHv3/WUa8Exjh47TWX5Op4/uBcpJZqm5T5ASyp0TXDk+AQmDt7eX7j8ruvsMAAHdviXn33e9R2GofPk/p1IqdC0zDJpZCMtzw0lOD8Y58WNl/msK0mp10NroJypaAyA8bFR/giGiUxG8RS7+aX/Kn+NhPDX+JBKoWUwXTPGoFKKpCWxGzrvnIyxvV7DDF9GaTaKCpycHVxgRhYBUKLPsuMOJ7H4PJZUeD2FXLz0J4cO7iOZSmHoesbuZMYYFEJgN3RMM8mumik2b6iHDdsIT8/xZe8ILx03KLKFAIgli3j/cY2n7m+mzJOPZUm6TvQwPBrGX1ORWym6lACRySjfnD5H9/d9NK+vZXPbIRLxKGd6+9kUaObIo1F8tvSeUNLGpkARZ3rPs/fBdvLcxdjtNp5+4Qi77tvCs0/swV9dsXxwOdEHF80k4YlpIpNR7HY7sTmTT85EKPVVYc3H6L4wiaOwFEdhKd0XJrHmY3jLK/n0h5tMxxfQlKTaV0Z9rQ+X05m7VXRkPMLRrhO0duzksffCBKrBJhPEzXwsPX2eupS4bXOktDyGRuHb13zUFCsC/kocdiM3q6hSilTKoraqDH+1j/FQmLtaXPjz4lyfcvDKvhJuTCyggPoyFx+cTFHvlXgLDC7f1LgyU8jh9QZmysKmaxkrMhllUCmFAsZCET7+4msuiXv4cWCWumJJpdfN7KKFAoocOuNTtxieETywwcWMlc9bB6roaHChSLeanOyDQgiUVNRWlbNlYxPmbxext7TTN5Tg10EDnHr6wwWN+irJ7mYHsxTw0J0etgZcyyIh56XakuzqPHaa68EgcXcrfSEPkTkJQuDLg8YKQVy6aKvz8OojJcvy7rYR20sCuv/3IW4EB6hu7uDd7hg2IdE0g8bKAvZscrMt4FxWQLfVNJFm8h9tOZOwaHg5SHQqyak36mivc+DNN7LG3IrMg0vznpmSFOfpPLe9kIc73Nzb5KLz5xhXxhfRtexO92IljF+p0n7MYNgklrC4u8G1cj7QmrO9Zhuu2Yb/nxRdA5iF+BuOMNDYy/cF3AAAAABJRU5ErkJggg==" alt="SRFed Logo"/>
     <div class="logo-text">SRFed Proposal Generator</div>
-    <div class="tagline">Navigate With Confidence</div>
   </div>
-  <div class="header-badge">SDVOSB · Internal Tool</div>
-
-  <!-- Microsoft / SharePoint Login -->
-  <div id="msLoginArea" style="margin-left:16px">
-    <button class="ms-login-btn" onclick="msLogin()" title="Sign in with Microsoft to connect SharePoint">
-      <svg class="ms-icon" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
-        <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-        <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-        <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-      </svg>
-      Sign in with Microsoft
-    </button>
-  </div>
-  <div id="msSignedInArea" style="display:none;margin-left:16px">
+  <div id="msSignedInArea" style="display:none;margin-left:auto">
     <div class="ms-signed-in">
       <div class="ms-avatar" id="msAvatar">?</div>
       <div>
@@ -345,77 +320,107 @@
     </div>
   </div>
 
+  <!-- ROW 1: Step 1 (Sign in) LEFT | Step 2 (SharePoint folders) RIGHT -->
+  <div class="two-col" style="margin-bottom:24px">
+
+    <!-- Step 1: Sign in with Microsoft -->
+    <div class="card">
+      <div class="card-header"><span class="icon">🔐</span> Step 1: Sign In with Microsoft</div>
+      <div class="card-body">
+        <div id="step1SignedOut" style="text-align:center;padding:16px 0">
+          <div style="font-size:40px;margin-bottom:12px">🔒</div>
+          <div style="font-weight:600;font-size:15px;margin-bottom:8px;color:var(--blue)">Sign in to get started</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Use your South River Federal Solutions Microsoft 365 account to authenticate and unlock SharePoint access.</p>
+          <button class="ms-login-btn" onclick="msLogin()" style="margin:0 auto;display:inline-flex;padding:10px 20px;font-size:14px">
+            <svg class="ms-icon" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+              <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+              <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+              <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+              <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+            </svg>
+            Sign in with Microsoft
+          </button>
+        </div>
+        <div id="step1SignedIn" style="display:none;text-align:center;padding:16px 0">
+          <div style="font-size:40px;margin-bottom:12px">✅</div>
+          <div style="font-weight:600;font-size:15px;margin-bottom:6px;color:var(--success)">Signed In</div>
+          <div style="font-size:13px;color:var(--muted)" id="step1AccountLine">—</div>
+          <button onclick="msLogout()" style="margin-top:14px;background:none;border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;color:var(--muted);cursor:pointer;">Sign out</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: SharePoint Folders -->
+    <div class="card">
+      <div class="card-header"><span class="icon">🔗</span> Step 2: Connect SharePoint</div>
+      <div class="card-body">
+        <div id="spSignedOut" style="text-align:center;padding:24px 0;color:var(--muted)">
+          <div style="font-size:32px;margin-bottom:10px">🔒</div>
+          <div style="font-size:13px">Complete Step 1 to unlock SharePoint folder selection.</div>
+        </div>
+        <div id="spSignedIn" style="display:none">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:8px 12px;background:var(--success-bg);border:1px solid #86efac;border-radius:6px">
+            <span style="font-size:16px">✅</span>
+            <div style="font-size:12px;color:var(--success)" id="spAccountLine">Connected to Microsoft 365</div>
+          </div>
+          <div class="form-group">
+            <label>Past Performance Folder URL</label>
+            <input type="text" id="spPP" placeholder="https://srfed.sharepoint.com/.../Past Performance"/>
+          </div>
+          <div class="form-group">
+            <label>Resumes Folder URL</label>
+            <input type="text" id="spResumes" placeholder="https://srfed.sharepoint.com/.../Resumes"/>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Boilerplate / Capabilities Folder URL</label>
+            <input type="text" id="spBoilerplate" placeholder="https://srfed.sharepoint.com/.../Boilerplate"/>
+          </div>
+          <p class="tip" style="margin-top:10px">Leave any folder blank to skip it for this run.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ROW 2: Step 3 (Drop RFP) LEFT | Step 4 (Notes + Volumes + Generate) RIGHT -->
   <div class="two-col">
 
-    <!-- LEFT: INPUTS -->
+    <!-- Step 3: Drop RFP Documents -->
     <div>
-      <!-- RFP Documents -->
-      <div class="card" style="margin-bottom:20px">
-        <div class="card-header"><span class="icon">📁</span> Step 1: Drop RFP Documents</div>
+      <div class="card" style="margin-bottom:24px">
+        <div class="card-header"><span class="icon">📁</span> Step 3: Drop RFP Documents</div>
         <div class="card-body">
           <div class="drop-zone" id="dropZone">
             <input type="file" id="fileInput" multiple accept=".pdf,.docx,.doc,.xlsx,.xls"/>
             <div class="dz-icon">📂</div>
-            <div class="dz-title">Drag & Drop RFP Files Here</div>
+            <div class="dz-title">Drag &amp; Drop RFP Files Here</div>
             <div class="dz-sub">PDF, Word, Excel · Multiple files supported</div>
           </div>
           <div class="file-list" id="fileList"></div>
+          <p class="tip" style="margin-top:12px">💡 Claude will automatically extract the solicitation number, agency, POC, submission date, and requirement title from your documents.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COL: Steps 4 + 5 -->
+    <div>
+
+      <!-- Step 4: Notes for Claude -->
+      <div class="card" style="margin-bottom:24px">
+        <div class="card-header"><span class="icon">📝</span> Step 4: Additional Notes for Claude</div>
+        <div class="card-body">
+          <div class="form-group" style="margin-bottom:0">
+            <textarea id="additionalNotes" style="min-height:100px" placeholder="Optional: teaming partners, specific focus areas, past performance to emphasize, unique qualifications, or any other context you want Claude to consider when writing the proposal..."></textarea>
+          </div>
+          <p class="tip" style="margin-top:8px">💡 All other proposal details (sol number, agency, POC, date) will be extracted automatically from your RFP documents.</p>
         </div>
       </div>
 
-      <!-- Proposal Details -->
-      <div class="card" style="margin-bottom:20px">
-        <div class="card-header"><span class="icon">📋</span> Step 2: Proposal Details</div>
+      <!-- Step 5: Select Volumes + Generate -->
+      <div class="card" style="margin-bottom:24px">
+        <div class="card-header"><span class="icon">🚀</span> Step 5: Select Volumes &amp; Generate</div>
         <div class="card-body">
-          <div class="form-group">
-            <label>Solicitation Number</label>
-            <input type="text" id="solNum" placeholder="e.g. N6660426R3005"/>
-          </div>
-          <div class="form-group">
-            <label>Requirement / Contract Title</label>
-            <input type="text" id="reqTitle" placeholder="e.g. Code 70 Business Support Services"/>
-          </div>
-          <div class="form-group">
-            <label>Government Agency / Office</label>
-            <input type="text" id="agencyName" placeholder="e.g. NUWC DIV NEWPORT"/>
-          </div>
-          <div class="two-col" style="gap:12px">
-            <div class="form-group">
-              <label>Agency Address</label>
-              <input type="text" id="agencyAddr" placeholder="1176 Howell St, Newport, RI"/>
-            </div>
-            <div class="form-group">
-              <label>Submission Date</label>
-              <input type="date" id="subDate"/>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Government POC Name</label>
-            <input type="text" id="pocName" placeholder="Contracting Officer name"/>
-          </div>
-          <div class="two-col" style="gap:12px">
-            <div class="form-group">
-              <label>POC Email</label>
-              <input type="email" id="pocEmail" placeholder="poc@agency.gov"/>
-            </div>
-            <div class="form-group">
-              <label>POC Phone</label>
-              <input type="text" id="pocPhone" placeholder="(XXX) XXX-XXXX"/>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Additional Context / Notes for Claude</label>
-            <textarea id="additionalNotes" placeholder="Any specific instructions, focus areas, teaming partners, unique requirements, or notes you want the AI to consider when writing the proposal..."></textarea>
-            <div class="tip">💡 Tip: The more context you give, the better tailored the output will be.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Volumes to Generate -->
-      <div class="card">
-        <div class="card-header"><span class="icon">📄</span> Step 3: Select Volumes to Generate</div>
-        <div class="card-body">
-          <div class="volumes-grid">
+          <div class="volumes-grid" style="margin-bottom:16px">
             <label class="vol-check checked" id="volCheck1">
               <input type="checkbox" id="vol1" checked/> Vol I – Technical
             </label>
@@ -429,70 +434,12 @@
               <input type="checkbox" id="vol4" checked/> Vol IV – Contract Docs
             </label>
           </div>
-          <p class="tip" style="margin-top:12px">📊 Note: Pricing Excel is not generated (you'll complete that manually). The Price Narrative Word doc will be generated with bones/placeholders for your numbers.</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- RIGHT: RUN + OUTPUT -->
-    <div>
-      <!-- SharePoint Panel -->
-      <div class="card" style="margin-bottom:20px">
-        <div class="card-header"><span class="icon">🔗</span> SharePoint Content Library</div>
-        <div class="card-body">
-
-          <!-- SIGNED OUT state -->
-          <div id="spSignedOut" style="text-align:center;padding:16px 0">
-            <div style="font-size:32px;margin-bottom:10px">🔒</div>
-            <div style="font-weight:600;margin-bottom:6px;color:var(--blue-gray)">Microsoft Sign-In Required</div>
-            <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Sign in with your Microsoft 365 account to connect SharePoint and auto-pull past performance write-ups, resumes, and boilerplate.</p>
-            <button class="ms-login-btn" onclick="msLogin()" style="margin:0 auto;display:inline-flex">
-              <svg class="ms-icon" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
-                <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-                <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-                <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-                <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-              </svg>
-              Sign in with Microsoft
-            </button>
-          </div>
-
-          <!-- SIGNED IN state -->
-          <div id="spSignedIn" style="display:none">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:8px 12px;background:var(--success-bg);border:1px solid #86efac;border-radius:6px">
-              <span style="font-size:18px">✅</span>
-              <div>
-                <div style="font-weight:600;font-size:13px;color:var(--success)">Connected to Microsoft 365</div>
-                <div style="font-size:12px;color:var(--muted)" id="spAccountLine">—</div>
-              </div>
-            </div>
-            <div class="form-group">
-              <label>SharePoint Past Performance Folder URL</label>
-              <input type="text" id="spPP" placeholder="https://yourcompany.sharepoint.com/sites/SRFed/Shared Documents/Past Performance"/>
-            </div>
-            <div class="form-group">
-              <label>SharePoint Resumes Folder URL</label>
-              <input type="text" id="spResumes" placeholder="https://yourcompany.sharepoint.com/sites/SRFed/Shared Documents/Resumes"/>
-            </div>
-            <div class="form-group">
-              <label>SharePoint Boilerplate / Capabilities Folder URL</label>
-              <input type="text" id="spBoilerplate" placeholder="https://yourcompany.sharepoint.com/sites/SRFed/Shared Documents/Boilerplate"/>
-            </div>
-            <p class="tip">Folders will be scanned and relevant documents automatically selected based on RFP requirements. Leave blank to skip SharePoint content for this run.</p>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- RUN BUTTON -->
-      <div class="card" style="margin-bottom:20px">
-        <div class="card-header"><span class="icon">🚀</span> Step 4: Generate Proposal</div>
-        <div class="card-body">
+          <p class="tip" style="margin-bottom:14px">📊 Pricing Excel is always manual. Vol III generates the narrative with placeholders for your numbers.</p>
           <button class="btn btn-primary btn-block" id="runBtn" onclick="runGeneration()">
             <span id="runBtnIcon">✨</span>
             <span id="runBtnText">Generate Proposal Documents</span>
           </button>
-          <p class="tip" style="margin-top:12px;text-align:center">Generation typically takes 60–120 seconds depending on document size.</p>
+          <p class="tip" style="margin-top:10px;text-align:center">Typically 60–120 seconds depending on document size.</p>
         </div>
       </div>
 
@@ -508,11 +455,11 @@
 
       <!-- LOG -->
       <div class="log-box" id="logBox" style="display:none"></div>
+
     </div>
 
   </div>
 </div>
-
 <script>
 // ─── MICROSOFT AUTH (MSAL) ────────────────────────────────────────────────────
 // NOTE: Replace CLIENT_ID with your Azure App Registration client ID.
@@ -533,6 +480,10 @@ let msAccount   = null;
 
 function initMsal() {
   try {
+    if (typeof msal === 'undefined') {
+      setTimeout(initMsal, 300);
+      return;
+    }
     msalClient = new msal.PublicClientApplication(MSAL_CONFIG);
     msalClient.handleRedirectPromise().then(resp => {
       if (resp && resp.account) setMsAccount(resp.account);
@@ -542,12 +493,12 @@ function initMsal() {
       }
     }).catch(e => console.warn('MSAL redirect error:', e));
   } catch(e) {
-    console.warn('MSAL init failed (CLIENT_ID not set?):', e.message);
+    console.warn('MSAL init failed:', e.message);
   }
 }
 
 async function msLogin() {
-  if (!msalClient) { alert('MSAL not initialized. Check that CLIENT_ID is set in the code.'); return; }
+  if (!msalClient) { alert('Microsoft login is not available. Please check your internet connection and refresh the page.'); return; }
   try {
     const resp = await msalClient.loginPopup({ scopes: SP_SCOPES });
     setMsAccount(resp.account);
@@ -570,10 +521,12 @@ function setMsAccount(account) {
 
 function renderMsState() {
   const signedIn = !!msAccount;
-  // Header pill
-  document.getElementById('msLoginArea').style.display   = signedIn ? 'none' : 'block';
+  // Header signed-in pill
   document.getElementById('msSignedInArea').style.display = signedIn ? 'block' : 'none';
-  // SharePoint panel
+  // Step 1 card
+  document.getElementById('step1SignedOut').style.display = signedIn ? 'none' : 'block';
+  document.getElementById('step1SignedIn').style.display  = signedIn ? 'block' : 'none';
+  // Step 2 SharePoint panel
   document.getElementById('spSignedOut').style.display = signedIn ? 'none' : 'block';
   document.getElementById('spSignedIn').style.display  = signedIn ? 'block' : 'none';
 
@@ -581,15 +534,16 @@ function renderMsState() {
     const name  = msAccount.name || msAccount.username || 'User';
     const email = msAccount.username || '';
     const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
-    document.getElementById('msAvatar').textContent = initials;
-    document.getElementById('msName').textContent   = name;
-    document.getElementById('msEmail').textContent  = email;
-    document.getElementById('spAccountLine').textContent = email + '  ·  Microsoft 365';
+    document.getElementById('msAvatar').textContent       = initials;
+    document.getElementById('msName').textContent         = name;
+    document.getElementById('msEmail').textContent        = email;
+    document.getElementById('step1AccountLine').textContent = name + '  ·  ' + email;
+    document.getElementById('spAccountLine').textContent  = email + '  ·  Microsoft 365';
   }
 }
 
-// Initialize MSAL on page load
-document.addEventListener('DOMContentLoaded', initMsal);
+// Initialize MSAL after everything loads
+window.addEventListener('load', initMsal);
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
 let uploadedFiles = [];
@@ -709,24 +663,15 @@ function getMimeType(file) {
 
 // ─── MAIN GENERATION FLOW ─────────────────────────────────────────────────────
 async function runGeneration() {
-  const solNum    = document.getElementById('solNum').value.trim();
-  const reqTitle  = document.getElementById('reqTitle').value.trim();
-  const agencyName = document.getElementById('agencyName').value.trim();
-  const agencyAddr = document.getElementById('agencyAddr').value.trim();
-  const subDate   = document.getElementById('subDate').value;
-  const pocName   = document.getElementById('pocName').value.trim();
-  const pocEmail  = document.getElementById('pocEmail').value.trim();
-  const pocPhone  = document.getElementById('pocPhone').value.trim();
-  const notes     = document.getElementById('additionalNotes').value.trim();
-
+  const notes   = document.getElementById('additionalNotes').value.trim();
   const genVols = ['1','2','3','4'].filter(n => document.getElementById(`vol${n}`).checked);
 
   if (uploadedFiles.length === 0) {
-    showStatus('warn', 'No documents uploaded', 'Please upload your RFP documents (PDF, Word, or Excel) before generating.');
+    showStatus('warn', 'No documents uploaded', 'Please drop your RFP documents in Step 3 before generating.');
     return;
   }
-  if (!reqTitle && !solNum) {
-    showStatus('warn', 'Missing information', 'Please enter at least the solicitation number or requirement title.');
+  if (genVols.length === 0) {
+    showStatus('warn', 'No volumes selected', 'Please select at least one proposal volume to generate.');
     return;
   }
 
@@ -779,22 +724,16 @@ async function runGeneration() {
     }
 
     // Build the master prompt
-    const dateStr = subDate ? new Date(subDate).toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'}) : new Date().toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'});
-
     messageContent.push({
       type: 'text',
-      text: `You are an expert government proposal writer for South River Federal Solutions LLC (SRFed), a Service-Disabled Veteran-Owned Small Business (SDVOSB) headquartered in Edgewater, MD. SRFed's tagline is "Navigate With Confidence."
+      text: `You are an expert government proposal writer for South River Federal Solutions LLC (SRFed), a Service-Disabled Veteran-Owned Small Business (SDVOSB) headquartered in Edgewater, MD.
 
-I have provided the RFP/solicitation documents above. Your job is to analyze them thoroughly and generate complete, tailored proposal content for the following volumes.
+I have provided the RFP/solicitation documents above. Your job is to:
+1. Extract all proposal metadata directly from the documents (solicitation number, requirement title, agency name, agency address, POC name/email/phone, submission date)
+2. Generate complete, tailored proposal content for the requested volumes
 
-## PROPOSAL METADATA
-- Solicitation Number: ${solNum || '[TBD]'}
-- Requirement Title: ${reqTitle || '[TBD]'}
-- Government Agency: ${agencyName || '[TBD]'}
-- Agency Address: ${agencyAddr || '[TBD]'}
-- POC: ${pocName || '[TBD]'} | ${pocEmail || '[TBD]'} | ${pocPhone || '[TBD]'}
-- Submission Date: ${dateStr}
-- Volumes Requested: ${genVols.map(v => `Volume ${v}`).join(', ')}
+## VOLUMES REQUESTED
+${genVols.map(v => `Volume ${v}`).join(', ')}
 
 ## SRFED COMPANY PROFILE (use this to write about the company)
 - Full Legal Name: South River Federal Solutions LLC
@@ -941,19 +880,12 @@ Analyze the RFP documents provided and generate proposal content. Return a JSON 
       }
     }
 
-    // Fill in any missing metadata from user inputs
-    proposalData.solicitation_number = proposalData.solicitation_number || solNum;
-    proposalData.requirement_title   = proposalData.requirement_title   || reqTitle;
-    proposalData.agency_name         = proposalData.agency_name         || agencyName;
-    proposalData.agency_address      = proposalData.agency_address      || agencyAddr;
-    proposalData.agency_poc          = proposalData.agency_poc          || pocName;
-    proposalData.agency_poc_email    = proposalData.agency_poc_email    || pocEmail;
-    proposalData.agency_poc_phone    = proposalData.agency_poc_phone    || pocPhone;
-    proposalData.submission_date     = proposalData.submission_date     || dateStr;
-    proposalData.output_prefix       = 'SRFed_Proposal_' + (proposalData.solicitation_number || 'Draft').replace(/[^a-zA-Z0-9_]/g,'_');
+    // Claude extracts all metadata from the RFP docs; just set the output prefix
+    proposalData.output_prefix = 'SRFed_Proposal_' + (proposalData.solicitation_number || 'Draft').replace(/[^a-zA-Z0-9_]/g,'_');
 
     log('Proposal data extracted successfully.');
-    log('Requirements identified: ' + (proposalData.volume1?.understanding_of_requirement?.length > 50 ? 'YES' : 'PARTIAL'));
+    log('Solicitation: ' + (proposalData.solicitation_number || 'not found in docs'));
+    log('Agency: ' + (proposalData.agency_name || 'not found in docs'));
 
     allSteps[3].status = 'done';
     allSteps[4].status = 'done';
