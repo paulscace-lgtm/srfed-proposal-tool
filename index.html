@@ -4,23 +4,37 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>SRFed Proposal Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 <style>
   :root {
-    --blue: #1F4E79;
-    --mid-blue: #2E75B6;
-    --light-blue: #BDD7EE;
-    --pale: #EAF2FA;
-    --white: #ffffff;
-    --gray: #f4f5f7;
-    --border: #d0d7de;
-    --text: #1a1a2e;
-    --muted: #6b7280;
-    --success: #166534;
-    --success-bg: #dcfce7;
-    --warn: #92400e;
-    --warn-bg: #fef3c7;
-    --error: #991b1b;
-    --error-bg: #fee2e2;
+    /* ── SRFed Brand Palette ── */
+    --blue:        #005FD5;   /* Primary Blue */
+    --blue-gray:   #485872;   /* Blue-Gray */
+    --sky-blue:    #3EB6F4;   /* Sky Blue */
+    --mid-blue:    #0576FF;   /* Light Blue (secondary) */
+    --light-blue:  #66C6F6;   /* Light Sky Blue */
+    --pale:        #EAF4FD;
+    --teal:        #61EBBA;
+    --teal-light:  #9FF3D5;
+    --yellow:      #FFE646;
+    --green:       #00E266;
+    --amber:       #FFBF00;
+    --gray-mid:    #A6A6A6;
+    --gray-light:  #C4C4C4;
+    /* UI tokens */
+    --white:       #ffffff;
+    --gray:        #f2f4f8;
+    --border:      #d0d7de;
+    --text:        #1a1a2e;
+    --muted:       #6b7280;
+    --success:     #0a5c2e;
+    --success-bg:  #d4f7e5;
+    --warn:        #7a4800;
+    --warn-bg:     #fff3cd;
+    --error:       #991b1b;
+    --error-bg:    #fee2e2;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -28,17 +42,17 @@
 
   /* ── HEADER ── */
   .app-header {
-    background: var(--blue);
+    background: linear-gradient(135deg, #005FD5 0%, #485872 100%);
     color: white;
     padding: 0 32px;
     display: flex;
     align-items: center;
-    height: 60px;
+    height: 64px;
     gap: 16px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   }
   .app-header .logo-text { font-size: 18px; font-weight: 700; letter-spacing: .5px; }
-  .app-header .tagline { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+  .app-header .tagline { font-size: 12px; opacity: 0.75; margin-top: 2px; }
   .header-left { display: flex; flex-direction: column; }
   .header-badge {
     margin-left: auto;
@@ -50,6 +64,36 @@
     font-weight: 600;
     letter-spacing: .3px;
   }
+
+  /* ── MS LOGIN PILL ── */
+  .ms-login-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: white; color: #1a1a2e;
+    border: none; border-radius: 6px;
+    padding: 6px 14px; font-size: 13px; font-weight: 600;
+    cursor: pointer; white-space: nowrap;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    transition: box-shadow 0.15s;
+    flex-shrink: 0;
+  }
+  .ms-login-btn:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+  .ms-login-btn .ms-icon { width: 18px; height: 18px; flex-shrink: 0; }
+  .ms-signed-in {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 6px; padding: 5px 12px;
+    font-size: 13px; white-space: nowrap; flex-shrink: 0;
+  }
+  .ms-signed-in .ms-avatar {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--teal); color: #005FD5;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 12px; flex-shrink: 0;
+  }
+  .ms-signed-in .ms-name { font-weight: 600; color: white; max-width: 130px; overflow: hidden; text-overflow: ellipsis; }
+  .ms-signed-in .ms-signout { font-size: 11px; color: rgba(255,255,255,0.6); cursor: pointer; margin-left: 4px; text-decoration: underline; }
+  .ms-signed-in .ms-signout:hover { color: white; }
 
   /* ── LAYOUT ── */
   .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
@@ -65,7 +109,7 @@
     overflow: hidden;
   }
   .card-header {
-    background: var(--blue);
+    background: linear-gradient(90deg, #005FD5 0%, #485872 100%);
     color: white;
     padding: 14px 20px;
     font-size: 14px;
@@ -261,6 +305,29 @@
     <div class="tagline">Navigate With Confidence</div>
   </div>
   <div class="header-badge">SDVOSB · Internal Tool</div>
+
+  <!-- Microsoft / SharePoint Login -->
+  <div id="msLoginArea" style="margin-left:16px">
+    <button class="ms-login-btn" onclick="msLogin()" title="Sign in with Microsoft to connect SharePoint">
+      <svg class="ms-icon" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+        <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+        <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+        <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+      </svg>
+      Sign in with Microsoft
+    </button>
+  </div>
+  <div id="msSignedInArea" style="display:none;margin-left:16px">
+    <div class="ms-signed-in">
+      <div class="ms-avatar" id="msAvatar">?</div>
+      <div>
+        <div class="ms-name" id="msName">—</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.55)" id="msEmail">—</div>
+      </div>
+      <span class="ms-signout" onclick="msLogout()">Sign out</span>
+    </div>
+  </div>
 </header>
 
 <div class="container">
@@ -373,20 +440,47 @@
       <div class="card" style="margin-bottom:20px">
         <div class="card-header"><span class="icon">🔗</span> SharePoint Content Library</div>
         <div class="card-body">
-          <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Connect your SharePoint to pull past performance write-ups, resumes, and boilerplate automatically.</p>
-          <div class="form-group">
-            <label>SharePoint Past Performance Folder URL</label>
-            <input type="text" id="spPP" placeholder="https://yourcompany.sharepoint.com/..."/>
+
+          <!-- SIGNED OUT state -->
+          <div id="spSignedOut" style="text-align:center;padding:16px 0">
+            <div style="font-size:32px;margin-bottom:10px">🔒</div>
+            <div style="font-weight:600;margin-bottom:6px;color:var(--blue-gray)">Microsoft Sign-In Required</div>
+            <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Sign in with your Microsoft 365 account to connect SharePoint and auto-pull past performance write-ups, resumes, and boilerplate.</p>
+            <button class="ms-login-btn" onclick="msLogin()" style="margin:0 auto;display:inline-flex">
+              <svg class="ms-icon" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+                <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+              </svg>
+              Sign in with Microsoft
+            </button>
           </div>
-          <div class="form-group">
-            <label>SharePoint Resumes Folder URL</label>
-            <input type="text" id="spResumes" placeholder="https://yourcompany.sharepoint.com/..."/>
+
+          <!-- SIGNED IN state -->
+          <div id="spSignedIn" style="display:none">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:8px 12px;background:var(--success-bg);border:1px solid #86efac;border-radius:6px">
+              <span style="font-size:18px">✅</span>
+              <div>
+                <div style="font-weight:600;font-size:13px;color:var(--success)">Connected to Microsoft 365</div>
+                <div style="font-size:12px;color:var(--muted)" id="spAccountLine">—</div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>SharePoint Past Performance Folder URL</label>
+              <input type="text" id="spPP" placeholder="https://yourcompany.sharepoint.com/sites/SRFed/Shared Documents/Past Performance"/>
+            </div>
+            <div class="form-group">
+              <label>SharePoint Resumes Folder URL</label>
+              <input type="text" id="spResumes" placeholder="https://yourcompany.sharepoint.com/sites/SRFed/Shared Documents/Resumes"/>
+            </div>
+            <div class="form-group">
+              <label>SharePoint Boilerplate / Capabilities Folder URL</label>
+              <input type="text" id="spBoilerplate" placeholder="https://yourcompany.sharepoint.com/sites/SRFed/Shared Documents/Boilerplate"/>
+            </div>
+            <p class="tip">Folders will be scanned and relevant documents automatically selected based on RFP requirements. Leave blank to skip SharePoint content for this run.</p>
           </div>
-          <div class="form-group">
-            <label>SharePoint Boilerplate / Capabilities Folder URL</label>
-            <input type="text" id="spBoilerplate" placeholder="https://yourcompany.sharepoint.com/..."/>
-          </div>
-          <p class="tip">SharePoint integration uses your existing Microsoft 365 authentication. Folders will be scanned and relevant documents automatically selected based on the RFP requirements.</p>
+
         </div>
       </div>
 
@@ -420,6 +514,83 @@
 </div>
 
 <script>
+// ─── MICROSOFT AUTH (MSAL) ────────────────────────────────────────────────────
+// NOTE: Replace CLIENT_ID with your Azure App Registration client ID.
+// Register at https://portal.azure.com → Azure Active Directory → App registrations
+// Set Redirect URI to this page's URL, add API permissions: Sites.Read.All, Files.Read.All
+const MSAL_CONFIG = {
+  auth: {
+    clientId: '6a9f08a7-3299-4332-a3ea-5721c4dcb683',
+    authority: 'https://login.microsoftonline.com/32cb4d1a-0419-4f41-9884-3516ab14274e',
+    redirectUri: 'https://srfed.github.io/srfed-proposal-tool/',
+  },
+  cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false }
+};
+const SP_SCOPES = ['User.Read', 'Sites.Read.All', 'Files.Read.All'];
+
+let msalClient = null;
+let msAccount   = null;
+
+function initMsal() {
+  try {
+    msalClient = new msal.PublicClientApplication(MSAL_CONFIG);
+    msalClient.handleRedirectPromise().then(resp => {
+      if (resp && resp.account) setMsAccount(resp.account);
+      else {
+        const accts = msalClient.getAllAccounts();
+        if (accts.length > 0) setMsAccount(accts[0]);
+      }
+    }).catch(e => console.warn('MSAL redirect error:', e));
+  } catch(e) {
+    console.warn('MSAL init failed (CLIENT_ID not set?):', e.message);
+  }
+}
+
+async function msLogin() {
+  if (!msalClient) { alert('MSAL not initialized. Check that CLIENT_ID is set in the code.'); return; }
+  try {
+    const resp = await msalClient.loginPopup({ scopes: SP_SCOPES });
+    setMsAccount(resp.account);
+  } catch(e) {
+    if (e.errorCode !== 'user_cancelled') console.error('Login error:', e);
+  }
+}
+
+function msLogout() {
+  if (!msalClient) return;
+  msalClient.logoutPopup().catch(() => {});
+  msAccount = null;
+  renderMsState();
+}
+
+function setMsAccount(account) {
+  msAccount = account;
+  renderMsState();
+}
+
+function renderMsState() {
+  const signedIn = !!msAccount;
+  // Header pill
+  document.getElementById('msLoginArea').style.display   = signedIn ? 'none' : 'block';
+  document.getElementById('msSignedInArea').style.display = signedIn ? 'block' : 'none';
+  // SharePoint panel
+  document.getElementById('spSignedOut').style.display = signedIn ? 'none' : 'block';
+  document.getElementById('spSignedIn').style.display  = signedIn ? 'block' : 'none';
+
+  if (signedIn) {
+    const name  = msAccount.name || msAccount.username || 'User';
+    const email = msAccount.username || '';
+    const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+    document.getElementById('msAvatar').textContent = initials;
+    document.getElementById('msName').textContent   = name;
+    document.getElementById('msEmail').textContent  = email;
+    document.getElementById('spAccountLine').textContent = email + '  ·  Microsoft 365';
+  }
+}
+
+// Initialize MSAL on page load
+document.addEventListener('DOMContentLoaded', initMsal);
+
 // ─── STATE ───────────────────────────────────────────────────────────────────
 let uploadedFiles = [];
 let generatedDocs = {};
@@ -791,24 +962,9 @@ Analyze the RFP documents provided and generate proposal content. Return a JSON 
     allSteps[7].status = 'active';
     setProgress(75, allSteps);
 
-    // ── STEP 2: Send to backend for Word doc generation ───────────────────
-    log('Sending to document generation service...');
-
-    const genResponse = await fetch('/.netlify/functions/generate-docs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ proposalData, volumes: genVols })
-    });
-
-    let docs;
-    if (!genResponse.ok) {
-      // Fallback: generate client-side using JS docx library
-      log('Backend not available. Using client-side generation...', 'warn');
-      docs = await generateDocsClientSide(proposalData, genVols);
-    } else {
-      const result = await genResponse.json();
-      docs = result.documents;
-    }
+    // ── STEP 2: Generate real .docx files client-side ───────────────────
+    log('Building Word documents...');
+    const docs = await generateDocsClientSide(proposalData, genVols);
 
     allSteps[7].status = 'done';
     setProgress(100, allSteps);
@@ -826,242 +982,562 @@ Analyze the RFP documents provided and generate proposal content. Return a JSON 
   }
 }
 
-// ─── CLIENT-SIDE DOCX GENERATION ─────────────────────────────────────────────
-// Fallback: generate a rich HTML representation that can be opened in Word
+// ─── REAL .DOCX GENERATION (docx.js) ─────────────────────────────────────────
 async function generateDocsClientSide(proposalData, volumes) {
   const docs = {};
   const prefix = proposalData.output_prefix || 'SRFed_Proposal';
 
   const volConfigs = {
-    '1': { title: 'Technical', label: 'Volume I – Technical', content: buildVol1HTML(proposalData) },
-    '2': { title: 'Past_Performance', label: 'Volume II – Past Performance', content: buildVol2HTML(proposalData) },
-    '3': { title: 'Price_Narrative', label: 'Volume III – Price Narrative', content: buildVol3HTML(proposalData) },
-    '4': { title: 'Contract_Documentation', label: 'Volume IV – Contract Documentation', content: buildVol4HTML(proposalData) },
+    '1': { title: 'Technical',              label: 'Volume I \u2013 Technical',                 builder: buildDocxVol1 },
+    '2': { title: 'Past_Performance',       label: 'Volume II \u2013 Past Performance',          builder: buildDocxVol2 },
+    '3': { title: 'Price_Narrative',        label: 'Volume III \u2013 Price Narrative',          builder: buildDocxVol3 },
+    '4': { title: 'Contract_Documentation', label: 'Volume IV \u2013 Contract Documentation',    builder: buildDocxVol4 },
   };
 
   for (const vol of volumes) {
     const cfg = volConfigs[vol];
-    const htmlContent = wrapInWordHTML(cfg.content, proposalData, cfg.label);
-    const blob = new Blob([htmlContent], { type: 'application/msword' });
-    const url = URL.createObjectURL(blob);
-    docs[vol] = {
-      label: cfg.label,
-      filename: `${prefix}_Volume_${vol ? vol : ''}_${cfg.title}.doc`,
-      url,
-    };
-    log(`  Generated: ${cfg.label}`);
+    log(`  Building ${cfg.label}...`);
+    try {
+      const buffer = await cfg.builder(proposalData);
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      const url = URL.createObjectURL(blob);
+      docs[vol] = {
+        label: cfg.label,
+        filename: `${prefix}_Volume_${vol}_${cfg.title}.docx`,
+        url,
+      };
+      log(`    \u2713 ${cfg.label} (real .docx)`);
+    } catch(e) {
+      log(`    \u2717 ${cfg.label} failed: ${e.message}`, 'err');
+    }
   }
 
   return docs;
 }
 
-function wrapInWordHTML(body, data, volumeLabel) {
-  const solNum = data.solicitation_number || '';
-  const date   = data.submission_date || '';
-  return `
-<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-<head><meta charset='utf-8'><title>${volumeLabel}</title>
-<style>
-  @page { size: 8.5in 11in; margin: 1in; mso-header-margin: 0.5in; mso-footer-margin: 0.5in; }
-  body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #000; }
-  h1 { font-family: 'Times New Roman', serif; font-size: 13pt; font-weight: bold; border-bottom: 1px solid #1F4E79; padding-bottom: 4pt; margin-top: 18pt; margin-bottom: 6pt; }
-  h2 { font-family: 'Times New Roman', serif; font-size: 12pt; font-weight: bold; margin-top: 12pt; margin-bottom: 4pt; }
-  p { margin: 6pt 0; line-height: 1.2; }
-  table { border-collapse: collapse; width: 100%; margin: 12pt 0; }
-  th { background-color: #1F4E79; color: white; padding: 6pt 8pt; font-weight: bold; border: 1px solid #1F4E79; }
-  td { padding: 5pt 8pt; border: 1px solid #CCCCCC; vertical-align: top; }
-  tr:nth-child(even) td { background-color: #EAF0F7; }
-  .header-block { margin-bottom: 12pt; }
-  .cover-title { font-size: 16pt; font-weight: bold; margin: 12pt 0 6pt 0; }
-  .disclaimer { font-size: 10pt; color: #595959; margin-top: 12pt; }
-  div.header { color: #1F4E79; font-size: 10pt; border-bottom: 1px solid #1F4E79; padding-bottom: 3pt; margin-bottom: 6pt; }
-  ul { margin: 6pt 0 6pt 18pt; }
-  li { margin: 3pt 0; }
-  .placeholder { color: #999999; font-style: italic; }
-</style>
-<xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml>
-</head>
-<body>
-${body}
-</body></html>`;
+// ─── DOCX HELPERS ─────────────────────────────────────────────────────────────
+function d() { return docx; } // shorthand
+
+const NAVY   = '005FD5';   // Primary Blue
+const BLUE   = '0576FF';   // Light Blue (secondary)
+const BLUEGRAY = '485872'; // Blue-Gray
+const LTBLUE = '66C6F6';   // Light Sky Blue
+const PALE   = 'EAF4FD';
+const WHITE  = 'FFFFFF';
+const GRAY   = 'F2F4F8';
+
+const PAGE_W  = 12240; // 8.5in
+const PAGE_H  = 15840; // 11in
+const MARGIN  = 1080;  // 0.75in
+const CONT_W  = PAGE_W - MARGIN * 2; // content width in DXA
+
+function pageProps() {
+  return { page: { size: { width: PAGE_W, height: PAGE_H }, margin: { top: MARGIN, bottom: MARGIN, left: MARGIN, right: MARGIN } } };
 }
 
-function coverpageHTML(data, volTitle) {
-  const DISCLAIMER1 = `This submittal includes data that shall not be disclosed outside the Government and shall not be duplicated, used, or disclosed—in whole or in part—for any purpose other than to evaluate this submittal.`;
-  const DISCLAIMER2 = `This submittal contains trade secrets and commercial information that either are specifically exempted from disclosure by statute or are privileged or confidential within the meaning of the exemption set forth in 5 USC 552 (b)(3) and (4) of the Freedom of Information Act.`;
-  return `
-<table style="margin-bottom:12pt">
-  <tr>
-    <td colspan="2" style="border:none;background:none;padding:0 0 12pt 0">
-      <div style="background:#1F4E79;color:white;padding:8pt 12pt;font-size:9pt;text-align:right">SOUTH RIVER FEDERAL SOLUTIONS | NAVIGATE WITH CONFIDENCE</div>
-    </td>
-  </tr>
-</table>
-<p style="color:#595959;font-size:11pt">Solicitation # ${data.solicitation_number || '[SOLICITATION NUMBER]'}</p>
-<p class="cover-title">${data.requirement_title || '[REQUIREMENT TITLE]'} | ${volTitle}</p>
-<p>${data.submission_date || '[DATE]'}</p>
-<br/>
-<table><tr>
-  <th style="width:50%;background:#1F4E79">Provided to:</th>
-  <th style="width:50%;background:#1F4E79">Provided by:</th>
-</tr><tr>
-  <td>
-    <strong>${data.agency_name || '[AGENCY]'}</strong><br/>
-    ${data.agency_address || '[ADDRESS]'}<br/>
-    ${data.agency_poc || '[POC]'}<br/>
-    ${data.agency_poc_email || '[EMAIL]'}<br/>
-    ${data.agency_poc_phone || '[PHONE]'}
-  </td>
-  <td>
-    South River Federal Solutions LLC<br/>
-    Matthew Tarjick, Chief Executive Officer<br/>
-    (410) 463-2644<br/>
-    matthew.tarjick@srfed.com<br/><br/>
-    3168 Braverton Street, Suite 400<br/>
-    Edgewater, MD 21037<br/><br/>
-    SAM UEI: N5RZPM2JPJ21 | CAGE: 8BMQ1
-  </td>
-</tr></table>
-<p class="disclaimer">${DISCLAIMER1}</p>
-<p class="disclaimer">${DISCLAIMER2}</p>
-<br style="page-break-after:always"/>`;
+function makeDoc(sections) {
+  const { Document, Paragraph, TextRun, AlignmentType, LevelFormat, HeadingLevel } = docx;
+  return new Document({
+    styles: {
+      default: { document: { run: { font: 'Calibri', size: 22, color: '1A1A2E' } } },
+      paragraphStyles: [
+        {
+          id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
+          run:  { size: 28, bold: true, font: 'Calibri', color: NAVY },
+          paragraph: { spacing: { before: 240, after: 120 }, outlineLevel: 0,
+            border: { bottom: { style: docx.BorderStyle.SINGLE, size: 8, color: NAVY, space: 4 } } }
+        },
+        {
+          id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true,
+          run:  { size: 24, bold: true, font: 'Calibri', color: BLUEGRAY },
+          paragraph: { spacing: { before: 180, after: 60 }, outlineLevel: 1 }
+        },
+        {
+          id: 'Heading3', name: 'Heading 3', basedOn: 'Normal', next: 'Normal', quickFormat: true,
+          run:  { size: 22, bold: true, font: 'Calibri', color: '404040' },
+          paragraph: { spacing: { before: 120, after: 40 }, outlineLevel: 2 }
+        },
+        {
+          id: 'NormalBody', name: 'Normal Body', basedOn: 'Normal', next: 'NormalBody',
+          run: { font: 'Calibri', size: 22 },
+          paragraph: { spacing: { after: 120, line: 276, lineRule: 'auto' } }
+        },
+      ]
+    },
+    numbering: {
+      config: [
+        { reference: 'bullets', levels: [{ level: 0, format: LevelFormat.BULLET, text: '\u2022', alignment: AlignmentType.LEFT,
+            style: { paragraph: { indent: { left: 720, hanging: 360 } }, run: { font: 'Symbol' } } }] },
+      ]
+    },
+    sections,
+  });
 }
 
-function buildVol1HTML(d) {
-  const v = d.volume1 || {};
-  return coverpageHTML(d, 'Volume 1 – Technical') + `
-<h1>Technical Approach</h1>
-<h2>Understanding of the Requirement</h2>
-<p>${v.understanding_of_requirement || '<span class="placeholder">[Understanding of requirement — tailored to RFP]</span>'}</p>
-<h2>Technical Approach</h2>
-<p>${v.technical_approach || '<span class="placeholder">[Technical approach narrative]</span>'}</p>
-<h2>Integrated Execution Methodology</h2>
-<p>${v.integrated_methodology || 'SRFed executes this requirement using a structured, repeatable methodology that ensures consistency across all task areas while maintaining the flexibility to support evolving requirements.'}</p>
-<h2>Quality Assurance and Control</h2>
-<p>SRFed implements a multi-level quality assurance process ensuring all deliverables meet contractual requirements. Quality is embedded throughout execution rather than applied as a final step.</p>
-<h2>Risk Identification and Mitigation</h2>
-<p>SRFed proactively identifies and mitigates risks through ongoing analysis of schedule, financial performance, and stakeholder coordination.</p>
-<h2>Transition-In Plan</h2>
-<p>SRFed ensures a seamless transition within 30 days through structured milestones: Days 1–5 (staffing confirmation and onboarding); Days 6–15 (system access and initial task execution); Days 16–30 (full operational capability).</p>
-<br style="page-break-after:always"/>
-<h1>Management Approach</h1>
-<h2>Organizational Structure and Philosophy</h2>
-<p>SRFed's management approach centers on a single Program Manager accountable for all performance, supported by functional leads aligned to each task area. This structure ensures coordination, visibility, and accountability across all concurrent efforts.</p>
-<h2>Communication and Stakeholder Engagement</h2>
-<p>SRFed establishes a structured, multi-tiered communication approach including executive engagement, program coordination, and daily operational communication to ensure alignment and rapid response to Government needs.</p>
-<h2>Risk Management Framework</h2>
-<p>SRFed maintains a living risk register, continuously reviewed, with documented mitigation strategies for all identified risks across schedule, financial, and stakeholder dimensions.</p>
-<br style="page-break-after:always"/>
-<h1>Personnel Approach</h1>
-<h2>Staffing Plan</h2>
-<p>${v.staffing_plan || '<span class="placeholder">[Staffing plan tailored to this requirement\'s LCATs]</span>'}</p>
-<h2>Key Personnel</h2>
-<p>${v.key_personnel_intro || '<span class="placeholder">[Key personnel introduction]</span>'}</p>`;
+function h1(text) {
+  const { Paragraph, TextRun, HeadingLevel } = docx;
+  return new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text, font: 'Calibri', bold: true, color: NAVY, size: 28 })] });
 }
 
-function buildVol2HTML(d) {
-  const v = d.volume2 || {};
-  const refs = v.references || [];
-  let html = coverpageHTML(d, 'Volume 2 – Past Performance');
+function h2(text) {
+  const { Paragraph, TextRun, HeadingLevel } = docx;
+  return new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text, font: 'Calibri', bold: true, color: BLUEGRAY, size: 24 })] });
+}
 
-  const defaultRefs = refs.length > 0 ? refs : [
-    { program_name: 'BOMES Hub and Spoke', contract_number: 'HT001423F0097', pm_name: 'Jason Myers', pm_phone: '360-773-7241', pm_email: 'jason.e.myers26.ctr@health.mil', co_name: 'LCDR Keith Laffman', co_phone: '240-401-3361', co_email: 'Keith.m.laffman.mil@health.mil', cor_name: 'Daniel Dang', cor_phone: '202-999-9184', cor_email: 'daniel.dang1.civ@health.mil', contract_type: 'Cost Plus Fixed Fee (CPFF)', period_of_performance: '05/12/2023 – 05/14/2026', total_value: '$4,605,147.60 (Prime) / $1,356,522.33 (SRFed)', prime_or_sub: 'Subcontractor – supporting IT Data Consulting LLC', overview: null, scope: null, relevance: null, similarity: null },
-    { program_name: 'Military Health Systems Financial Operations Support', contract_number: 'HT001119C0022', pm_name: 'Matthew Tarjick', pm_phone: '410-463-2644', pm_email: 'matthew.tarjick@srfed.com', co_name: 'Jessica Heinke', co_phone: '703-681-1131', co_email: 'Jessica.K.Heinke.civ@health.mil', cor_name: 'Micah Meyers', cor_phone: '202-903-5876', cor_email: 'micah.l.meyers.civ@health.mil', contract_type: 'Firm Fixed Price', period_of_performance: '09/11/2019 – 09/10/2024', total_value: '$16,963,062.42 (Prime) / $1,310,674.64 (SRFed)', prime_or_sub: 'Subcontractor – supporting Advancia Technologies, LLC', overview: null, scope: null, relevance: null, similarity: null },
-    { program_name: 'GFEBS Global Technical Support', contract_number: 'HT001120C0017', pm_name: 'John Lee', pm_phone: '703-681-7515', pm_email: 'john.w.lee14.mil@health.mil', co_name: 'Jessica Heinke', co_phone: '703-681-1131', co_email: 'Jessica.K.Heinke.civ@health.mil', cor_name: 'Tom Sydes', cor_phone: '703-915-5880', cor_email: 'Thomas.a.sydes.ctr@health.mil', contract_type: 'Firm Fixed Price', period_of_performance: '08/16/2020 – 08/15/2024', total_value: '$76,609,581.34 (Prime) / $493,445.12 (SRFed)', prime_or_sub: 'Subcontractor – supporting Advancia Technologies, LLC', overview: null, scope: null, relevance: null, similarity: null },
+function h3(text) {
+  const { Paragraph, TextRun, HeadingLevel } = docx;
+  return new Paragraph({ heading: HeadingLevel.HEADING_3, children: [new TextRun({ text, font: 'Calibri', bold: true, color: '404040', size: 22 })] });
+}
+
+function para(text, opts = {}) {
+  const { Paragraph, TextRun } = docx;
+  if (!text) return new Paragraph({ children: [] });
+  // Split on newlines
+  const lines = text.split('\n');
+  const runs = [];
+  lines.forEach((line, i) => {
+    runs.push(new TextRun({ text: line, font: 'Calibri', size: 22, ...opts }));
+    if (i < lines.length - 1) runs.push(new TextRun({ break: 1 }));
+  });
+  return new Paragraph({ style: 'NormalBody', children: runs });
+}
+
+function bullet(text) {
+  const { Paragraph, TextRun } = docx;
+  return new Paragraph({
+    numbering: { reference: 'bullets', level: 0 },
+    children: [new TextRun({ text, font: 'Calibri', size: 22 })]
+  });
+}
+
+function spacer(lines = 1) {
+  const { Paragraph } = docx;
+  return Array.from({ length: lines }, () => new Paragraph({ children: [] }));
+}
+
+function pageBreak() {
+  const { Paragraph, PageBreak } = docx;
+  return new Paragraph({ children: [new PageBreak()] });
+}
+
+function boldLabel(label, value) {
+  const { Paragraph, TextRun } = docx;
+  return new Paragraph({ style: 'NormalBody', children: [
+    new TextRun({ text: label + ': ', bold: true, font: 'Calibri', size: 22 }),
+    new TextRun({ text: value || '', font: 'Calibri', size: 22 }),
+  ]});
+}
+
+// Cover page table — two columns: Gov't | SRFed
+function coverTable(data, volTitle) {
+  const { Table, TableRow, TableCell, Paragraph, TextRun, WidthType, ShadingType, BorderStyle, VerticalAlign } = docx;
+  const border = { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' };
+  const borders = { top: border, bottom: border, left: border, right: border };
+  const hdrShade = { fill: NAVY, type: ShadingType.CLEAR };
+  const cellPad = { top: 120, bottom: 120, left: 160, right: 160 };
+
+  function hdrCell(text, w) {
+    return new TableCell({
+      borders, shading: hdrShade, width: { size: w, type: WidthType.DXA }, margins: cellPad,
+      children: [new Paragraph({ children: [new TextRun({ text, bold: true, color: WHITE, font: 'Calibri', size: 20 })] })]
+    });
+  }
+  function bodyCell(lines, w) {
+    return new TableCell({
+      borders, width: { size: w, type: WidthType.DXA }, margins: cellPad, verticalAlign: VerticalAlign.TOP,
+      children: lines.map(l => new Paragraph({ children: [new TextRun({ text: l || '', font: 'Calibri', size: 20 })] }))
+    });
+  }
+
+  const half = Math.floor(CONT_W / 2);
+  const govLines = [
+    data.agency_name || '[AGENCY]',
+    data.agency_address || '[ADDRESS]',
+    '',
+    'Attn: ' + (data.agency_poc || '[POC]'),
+    data.agency_poc_email || '',
+    data.agency_poc_phone || '',
+  ];
+  const srfLines = [
+    'South River Federal Solutions LLC',
+    'Matthew Tarjick, Chief Executive Officer',
+    '(410) 463-2644',
+    'matthew.tarjick@srfed.com',
+    '',
+    '3168 Braverton Street, Suite 400',
+    'Edgewater, MD 21037',
+    '',
+    'SAM UEI: N5RZPM2JPJ21 | CAGE: 8BMQ1',
   ];
 
-  defaultRefs.forEach((ref, i) => {
-    html += `
-<h1>${ref.program_name || `Past Performance Reference ${i+1}`}</h1>
-<table>
-  <tr><td style="background:#EAF0F7;font-weight:bold;width:35%">Company Name:</td><td>South River Federal Solutions LLC</td></tr>
-  <tr><td style="background:#EAF0F7;font-weight:bold">CAGE Code:</td><td>8BMQ1</td></tr>
-  <tr><td style="background:#EAF0F7;font-weight:bold">Program Name:</td><td>${ref.program_name || '[Program Name]'}</td></tr>
-  <tr><td style="background:#EAF0F7;font-weight:bold">Contract Number:</td><td>${ref.contract_number || '[Contract Number]'}</td></tr>
-  <tr><td style="background:#EAF0F7;font-weight:bold">Program Manager:</td><td>${ref.pm_name || '[PM]'} | ${ref.pm_phone || ''} | ${ref.pm_email || ''}</td></tr>
-  <tr><td style="background:#EAF0F7;font-weight:bold">Contracting Officer:</td><td>${ref.co_name || '[CO]'} | ${ref.co_phone || ''} | ${ref.co_email || ''}</td></tr>
-  <tr><td style="background:#EAF0F7;font-weight:bold">COR:</td><td>${ref.cor_name || '[COR]'} | ${ref.cor_phone || ''} | ${ref.cor_email || ''}</td></tr>
-  <tr><td style="background:#EAF0F7;font-weight:bold">Contract Type:</td><td>${ref.contract_type || '[Type]'}</td></tr>
-  <tr><td style="background:#EAF0F7;font-weight:bold">Period of Performance:</td><td>${ref.period_of_performance || '[PoP]'}</td></tr>
-  <tr><td style="background:#EAF0F7;font-weight:bold">Total Value:</td><td>${ref.total_value || '[Value]'}</td></tr>
-  <tr><td style="background:#EAF0F7;font-weight:bold">Prime/Subcontractor:</td><td>${ref.prime_or_sub || '[Prime/Sub]'}</td></tr>
-</table>
-<h2>Overview</h2><p>${ref.overview || '<span class="placeholder">[Overview — tailored to show relevance to this solicitation]</span>'}</p>
-<h2>Scope &amp; Relevance</h2><p>${ref.scope || '<span class="placeholder">[Scope and relevance description]</span>'}</p>
-<h2>Relevance to Solicitation</h2><p>${ref.relevance || '<span class="placeholder">[Relevance mapped to this solicitation\'s task areas]</span>'}</p>
-<h2>Similarity in Scope, Magnitude, and Complexity</h2><p>${ref.similarity || '<span class="placeholder">[Similarity factors]</span>'}</p>
-${i < defaultRefs.length - 1 ? '<br style="page-break-after:always"/>' : ''}`;
+  return new Table({
+    width: { size: CONT_W, type: WidthType.DXA },
+    columnWidths: [half, CONT_W - half],
+    rows: [
+      new TableRow({ children: [ hdrCell('Provided to:', half), hdrCell('Provided by:', CONT_W - half) ] }),
+      new TableRow({ children: [ bodyCell(govLines, half), bodyCell(srfLines, CONT_W - half) ] }),
+    ]
   });
-  return html;
 }
 
-function buildVol3HTML(d) {
-  const v = d.volume3 || {};
-  return coverpageHTML(d, 'Volume 3 – Price') + `
-<h1>1. Introduction and Pricing Philosophy</h1>
-<p>South River Federal Solutions LLC (SRFed) is committed to delivering a pricing strategy that balances cost competitiveness with operational reliability, workforce retention, and long-term value for ${d.agency_name || 'the Government'}.</p>
-<p>${v.pricing_philosophy || 'Our philosophy centers on a "Fair and Reasonable for Long-Term Collective Success" approach. We aligned qualifications to mission-specific needs and structured rates using multiple references, including the Economic Research Institute, common salary benchmarks, previous SRFed contractual pricing data, and deep industry knowledge.'}</p>
-<h1>2. Labor Categories and Basis of Estimate</h1>
-<p>${v.boe_narrative || 'SRFed developed its Basis of Estimate (BOE) by aligning government-recognized labor categories with the specific objectives and deliverables outlined in the Performance Work Statement (PWS). <span class="placeholder">[Complete BOE narrative here with specific LCATs and hour allocations from this solicitation.]</span>'}</p>
-<br/>
-<table>
-  <tr><th>Labor Category</th><th>Base Labor Rate</th><th>Fully Burdened Rate</th><th>Annual Hours</th></tr>
-  <tr><td class="placeholder">[LCAT 1]</td><td class="placeholder">$[X.XX]</td><td class="placeholder">$[X.XX]</td><td>1,920</td></tr>
-  <tr><td class="placeholder">[LCAT 2]</td><td class="placeholder">$[X.XX]</td><td class="placeholder">$[X.XX]</td><td>1,920</td></tr>
-  <tr><td class="placeholder">[LCAT 3]</td><td class="placeholder">$[X.XX]</td><td class="placeholder">$[X.XX]</td><td>1,920</td></tr>
-  <tr><td><em>Add rows from your pricing Excel as needed</em></td><td></td><td></td><td></td></tr>
-</table>
-<h1>3. Pricing Reasonableness and Risk Mitigation</h1>
-<p>${v.wrap_rate_narrative || 'Pricing was determined based on industry norms, geographic labor rates, SRFed\'s GSA MAS schedule (47QRAA25D006B), and SRFed\'s internal wrap rate calculations. Base rates were escalated using SRFed\'s standard fringe, overhead, G&A, and profit allocations.'}</p>
-<ul>
-  <li><strong>Fringe Benefits</strong> – including PTO, 401(k) matching, medical/dental/vision coverage, and performance-based incentives.</li>
-  <li><strong>Overhead and G&A</strong> – ensuring organizational infrastructure and compliance support.</li>
-  <li><strong>Profit</strong> – applied conservatively to remain cost-competitive.</li>
-</ul>
-<p>${v.total_price_narrative || '<span class="placeholder">[INSERT TOTAL PRICE SUMMARY. Copy base year total, option year totals, and grand total from your pricing Excel. Reference the Section B tab.]</span>'}</p>
-<h1>4. Compliance Statement</h1>
-<p>All CLINs are fully priced in accordance with solicitation requirements. All contractor-furnished tools, licenses, and labor costs are incorporated. There will be no uncompensated overtime. SRFed does not intend to subcontract any work.</p>
-<p>SRFed maintains a DCAA-compliant accounting system (audited by DCAA Central Maryland Branch Office and DCMA Mid-Atlantic). SRFed's GSA MAS Contract Number is 47QRAA25D006B.</p>
-<p>${v.compliance_additional || '<span class="placeholder">[Add any solicitation-specific compliance acknowledgements here.]</span>'}</p>`;
+// Navy banner bar (top of cover page)
+function navyBanner(text) {
+  const { Paragraph, TextRun, ShadingType } = docx;
+  return new Paragraph({
+    shading: { fill: NAVY, type: ShadingType.CLEAR },
+    children: [new TextRun({ text, bold: true, color: WHITE, font: 'Calibri', size: 18, allCaps: true })]
+  });
 }
 
-function buildVol4HTML(d) {
-  const v = d.volume4 || {};
-  return coverpageHTML(d, 'Volume 4 – Contract Documentation') + `
-<h1>Cover Letter</h1>
-<p>South River Federal Solutions LLC (SRFed) is pleased to submit this proposal in response to Solicitation ${d.solicitation_number || '[SOL NUM]'} for ${d.requirement_title || '[REQUIREMENT]'} in support of ${d.agency_name || '[AGENCY]'}.</p>
-<p>SRFed is a Service-Disabled Veteran-Owned Small Business (SDVOSB) with demonstrated experience supporting Department of Defense (DoD) financial management, program management, and data analytics efforts.</p>
-<p>${v.cover_letter_additional || 'SRFed acknowledges all amendments to the solicitation and confirms that this proposal is valid for acceptance in accordance with solicitation requirements. We understand that award may be made based on initial proposals and have therefore submitted our best technical and cost solution.'}</p>
-<p>Respectfully submitted,<br/><br/>South River Federal Solutions LLC</p>
-<br style="page-break-after:always"/>
-<h1>Solicitation Fill-Ins</h1>
-<p>SRFed has completed all required solicitation representations, certifications, and fill-ins in accordance with Section K and all applicable clauses.</p>
-<ul>
-  <li>Acknowledgement of Amendments: Completed</li>
-  <li>Representations and Certifications: Completed in SAM.gov</li>
-  <li>Section B Pricing Inputs: Submitted via the required Excel document</li>
-  ${(v.additional_fill_ins || []).map(item => `<li>${item}</li>`).join('')}
-</ul>
-<br style="page-break-after:always"/>
-<h1>Organizational Conflict of Interest (OCI) Mitigation Plan</h1>
-<p>SRFed has conducted a thorough review of the requirements and has identified no known Organizational Conflicts of Interest (OCI) that would impair its ability to perform this contract objectively. To ensure continued compliance, SRFed implements:</p>
-<ul>
-  <li><strong>Organizational Firewalls:</strong> Segregation of personnel and data between contracts</li>
-  <li><strong>Access Controls:</strong> Role-based access ensuring personnel only access data necessary for performance</li>
-  <li><strong>Employee Training:</strong> Annual ethics and OCI awareness training</li>
-  <li><strong>Disclosure Procedures:</strong> Immediate notification to the Contracting Officer of any potential OCI</li>
-  <li><strong>Non-Disclosure Agreements:</strong> Enforced across all employees and subcontractors</li>
-</ul>
-<br style="page-break-after:always"/>
-<h1>Plan for Obtaining Personnel Clearances</h1>
-<p>All proposed key personnel currently hold at least an Interim SECRET clearance or higher, enabling SRFed to begin performance immediately upon award. SRFed maintains an Active SECRET Facility Clearance (FCL) under DCSA cognizance.</p>
-<p>${v.clearance_plan_additional || 'For personnel requiring clearance upgrades, SRFed submits clearance packages within 24–48 hours of onboarding through our Facility Security Officer (FSO), who coordinates directly with DCSA to ensure timely adjudication.'}</p>
-<h1>Facility Clearance Documentation</h1>
-<p>SRFed maintains an Active SECRET FCL. UEI: N5RZPM2JPJ21 | CAGE: 8BMQ1 | DUNS: 117067287 | Address: 3168 Braverton St, Suite 400, Edgewater, MD 21037 | Phone: (410) 774-6645</p>
-<h1>Government Furnished Property (GFP)</h1>
-<p>${v.gfp || 'SRFed will manage all Government Furnished Property in accordance with applicable DoN policies and established property accountability requirements, ensuring full lifecycle management from receipt through disposition.'}</p>
-<h1>Cybersecurity Maturity Model Certification (CMMC)</h1>
-<p>${v.cmmc || 'SRFed is currently CMMC Level 1 self-attested and is actively advancing toward CMMC Level 2 certification in partnership with USXCyber, implementing all NIST SP 800-171 security controls. UEI: N5RZPM2JPJ21 | CAGE: 8BMQ1.'}</p>`;
+function coverPageChildren(data, volTitle) {
+  const { Paragraph, TextRun, AlignmentType } = docx;
+  const DISC1 = 'This submittal includes data that shall not be disclosed outside the Government and shall not be duplicated, used, or disclosed—in whole or in part—for any purpose other than to evaluate this submittal.';
+  const DISC2 = 'This submittal contains trade secrets and commercial information that are either specifically exempted from disclosure by statute or are privileged or confidential within the meaning of the exemption set forth in 5 USC 552(b)(3) and (4) of the Freedom of Information Act.';
+  return [
+    navyBanner('South River Federal Solutions  |  Navigate With Confidence'),
+    ...spacer(2),
+    new Paragraph({ children: [new TextRun({ text: 'Solicitation No: ' + (data.solicitation_number || '[SOLICITATION NUMBER]'), font: 'Calibri', size: 22, color: '595959' })] }),
+    new Paragraph({ children: [new TextRun({ text: (data.requirement_title || '[REQUIREMENT TITLE]') + '  |  ' + volTitle, bold: true, font: 'Calibri', size: 32, color: NAVY })] }),
+    new Paragraph({ children: [new TextRun({ text: data.submission_date || '[DATE]', font: 'Calibri', size: 22 })] }),
+    ...spacer(2),
+    coverTable(data, volTitle),
+    ...spacer(2),
+    para(DISC1, { size: 18, color: '595959', italics: true }),
+    para(DISC2, { size: 18, color: '595959', italics: true }),
+    pageBreak(),
+  ];
+}
+
+// Section header (used as running header in footer text)
+function makeHeader(data, volTitle) {
+  const { Header, Paragraph, TextRun, AlignmentType, TabStopType, TabStopPosition } = docx;
+  return new Header({
+    children: [
+      new Paragraph({
+        tabStops: [{ type: TabStopType.RIGHT, position: CONT_W }],
+        border: { bottom: { style: docx.BorderStyle.SINGLE, size: 6, color: NAVY, space: 4 } },
+        children: [
+          new TextRun({ text: 'South River Federal Solutions LLC  |  ' + (data.solicitation_number || ''), font: 'Calibri', size: 18, color: NAVY }),
+          new TextRun({ text: '\t' + volTitle, font: 'Calibri', size: 18, color: BLUEGRAY }),
+        ]
+      })
+    ]
+  });
+}
+
+function makeFooter(data) {
+  const { Footer, Paragraph, TextRun, TabStopType, PageNumber, NumberFormat } = docx;
+  return new Footer({
+    children: [
+      new Paragraph({
+        tabStops: [{ type: TabStopType.RIGHT, position: CONT_W }],
+        border: { top: { style: docx.BorderStyle.SINGLE, size: 4, color: LTBLUE, space: 4 } },
+        children: [
+          new TextRun({ text: 'Proprietary & Source Selection Sensitive', font: 'Calibri', size: 16, color: '888888' }),
+          new TextRun({ text: '\tPage ', font: 'Calibri', size: 16, color: '888888' }),
+          new TextRun({ children: [PageNumber.CURRENT], font: 'Calibri', size: 16, color: '888888' }),
+          new TextRun({ text: ' of ', font: 'Calibri', size: 16, color: '888888' }),
+          new TextRun({ children: [PageNumber.TOTAL_PAGES], font: 'Calibri', size: 16, color: '888888' }),
+        ]
+      })
+    ]
+  });
+}
+
+// Past performance info table
+function ppRefTable(ref) {
+  const { Table, TableRow, TableCell, Paragraph, TextRun, WidthType, ShadingType, BorderStyle } = docx;
+  const border = { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' };
+  const borders = { top: border, bottom: border, left: border, right: border };
+  const cellPad = { top: 80, bottom: 80, left: 120, right: 120 };
+  const lblW = Math.floor(CONT_W * 0.36);
+  const valW = CONT_W - lblW;
+
+  function row(label, value) {
+    return new TableRow({ children: [
+      new TableCell({ borders, shading: { fill: PALE, type: ShadingType.CLEAR }, width: { size: lblW, type: WidthType.DXA }, margins: cellPad,
+        children: [new Paragraph({ children: [new TextRun({ text: label, bold: true, font: 'Calibri', size: 20 })] })] }),
+      new TableCell({ borders, width: { size: valW, type: WidthType.DXA }, margins: cellPad,
+        children: [new Paragraph({ children: [new TextRun({ text: value || '', font: 'Calibri', size: 20 })] })] }),
+    ]});
+  }
+
+  return new Table({
+    width: { size: CONT_W, type: WidthType.DXA },
+    columnWidths: [lblW, valW],
+    rows: [
+      row('Company Name', 'South River Federal Solutions LLC'),
+      row('CAGE Code', '8BMQ1'),
+      row('Program Name', ref.program_name),
+      row('Contract Number', ref.contract_number),
+      row('Program Manager', `${ref.pm_name || ''}  |  ${ref.pm_phone || ''}  |  ${ref.pm_email || ''}`),
+      row('Contracting Officer', `${ref.co_name || ''}  |  ${ref.co_phone || ''}  |  ${ref.co_email || ''}`),
+      row('COR', `${ref.cor_name || ''}  |  ${ref.cor_phone || ''}  |  ${ref.cor_email || ''}`),
+      row('Contract Type', ref.contract_type),
+      row('Period of Performance', ref.period_of_performance),
+      row('Total Contract Value', ref.total_value),
+      row('Prime / Subcontractor', ref.prime_or_sub),
+    ]
+  });
+}
+
+// LCAT table for Vol III
+function lcatTable(lcats) {
+  const { Table, TableRow, TableCell, Paragraph, TextRun, WidthType, ShadingType, BorderStyle } = docx;
+  const border = { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' };
+  const borders = { top: border, bottom: border, left: border, right: border };
+  const cellPad = { top: 80, bottom: 80, left: 120, right: 120 };
+  const cols = [Math.floor(CONT_W*0.4), Math.floor(CONT_W*0.2), Math.floor(CONT_W*0.2), Math.floor(CONT_W*0.2)];
+
+  function hdrCell(text, w) {
+    return new TableCell({ borders, shading: { fill: NAVY, type: ShadingType.CLEAR }, width: { size: w, type: WidthType.DXA }, margins: cellPad,
+      children: [new Paragraph({ children: [new TextRun({ text, bold: true, color: WHITE, font: 'Calibri', size: 20 })] })] });
+  }
+  function dataCell(text, w) {
+    return new TableCell({ borders, width: { size: w, type: WidthType.DXA }, margins: cellPad,
+      children: [new Paragraph({ children: [new TextRun({ text: text || '', font: 'Calibri', size: 20 })] })] });
+  }
+
+  const rows = [
+    new TableRow({ children: [ hdrCell('Labor Category', cols[0]), hdrCell('Base Rate', cols[1]), hdrCell('Fully Burdened Rate', cols[2]), hdrCell('Est. Annual Hours', cols[3]) ] }),
+  ];
+  (lcats && lcats.length > 0 ? lcats : [
+    { name: '[LCAT 1 — from your pricing Excel]', base: '$[X.XX]', burdened: '$[X.XX]', hours: '1,920' },
+    { name: '[LCAT 2]', base: '$[X.XX]', burdened: '$[X.XX]', hours: '1,920' },
+    { name: '[LCAT 3]', base: '$[X.XX]', burdened: '$[X.XX]', hours: '1,920' },
+  ]).forEach(lcat => {
+    rows.push(new TableRow({ children: [
+      dataCell(lcat.name, cols[0]), dataCell(lcat.base || '$[X.XX]', cols[1]),
+      dataCell(lcat.burdened || '$[X.XX]', cols[2]), dataCell(lcat.hours || '1,920', cols[3]),
+    ]}));
+  });
+
+  return new Table({ width: { size: CONT_W, type: WidthType.DXA }, columnWidths: cols, rows });
+}
+
+// ─── VOLUME BUILDERS ──────────────────────────────────────────────────────────
+
+async function buildDocxVol1(data) {
+  const v = data.volume1 || {};
+  const volTitle = 'Volume I \u2013 Technical';
+
+  const children = [
+    ...coverPageChildren(data, volTitle),
+    h1('Technical Approach'),
+    h2('1.1  Understanding of the Requirement'),
+    para(v.understanding_of_requirement || '[Understanding of requirement — tailored to this RFP.]'),
+    ...spacer(),
+    h2('1.2  Technical Approach'),
+    para(v.technical_approach || '[Technical approach narrative — tailored to PWS task areas.]'),
+    ...spacer(),
+    h2('1.3  Integrated Execution Methodology'),
+    para(v.integrated_methodology || 'SRFed executes this requirement using a structured, repeatable methodology that ensures consistency across all task areas while maintaining the flexibility to support evolving mission requirements. Our approach is anchored in transparent communication, rigorous data management, and a culture of continuous improvement — ensuring the Government receives maximum value throughout the period of performance.'),
+    ...spacer(),
+    h2('1.4  Quality Assurance and Control'),
+    para('SRFed implements a multi-level quality assurance process ensuring all deliverables meet contractual requirements. Quality is embedded throughout execution — in our planning, data practices, deliverable preparation, and stakeholder engagements — rather than applied as a final review step.'),
+    ...spacer(),
+    h2('1.5  Risk Identification and Mitigation'),
+    para('SRFed proactively identifies and mitigates performance risk through a living risk register, maintained by the Program Manager and reviewed at every status meeting. Risk factors are categorized by schedule, financial, personnel, and stakeholder dimensions, with documented mitigation strategies and contingency plans for each identified risk.'),
+    ...spacer(),
+    h2('1.6  Transition-In Plan'),
+    para('SRFed ensures full operational capability within 30 days of award through a structured transition plan:'),
+    bullet('Days 1\u20135: Finalize staffing, initiate clearance processing for any new hires, establish Government communication cadence'),
+    bullet('Days 6\u201315: Complete system access onboarding, shadow incumbent processes, begin initial task execution'),
+    bullet('Days 16\u201330: Achieve full operational capability; deliver initial status report to COR'),
+    pageBreak(),
+    h1('Management Approach'),
+    h2('2.1  Organizational Structure and Philosophy'),
+    para('SRFed\'s management approach centers on a single Program Manager accountable for all contract performance, supported by functional leads aligned to each major task area. This flat, accountable structure ensures rapid decision-making, clear communication, and full Government visibility into program status at all times.'),
+    ...spacer(),
+    h2('2.2  Communication and Stakeholder Engagement'),
+    para('SRFed establishes a structured, multi-tiered communication framework calibrated to the Government\'s needs — from executive touchpoints with senior leadership to daily operational coordination with COR and task leads. All meetings are documented with action items, owners, and due dates.'),
+    ...spacer(),
+    h2('2.3  Risk Management Framework'),
+    para('SRFed maintains a living risk register, updated and reviewed at every status meeting, with documented mitigation strategies for all identified risks. Our risk management culture ensures that emerging issues are surfaced early and resolved proactively — protecting schedule, budget, and mission outcomes.'),
+    pageBreak(),
+    h1('Personnel Approach'),
+    h2('3.1  Staffing Plan'),
+    para(v.staffing_plan || '[Staffing plan — tailored to this requirement\'s labor categories and task areas.]'),
+    ...spacer(),
+    h2('3.2  Key Personnel'),
+    para(v.key_personnel_intro || '[Key personnel introduction — tailored to this solicitation\'s key personnel requirements.]'),
+    ...spacer(),
+    h2('3.3  Personnel Retention and Continuity'),
+    para('SRFed maintains exceptional personnel retention through competitive compensation anchored to market benchmarks, a collaborative team culture, and meaningful work supporting DoD missions. In the unlikely event of personnel transition, SRFed activates a succession plan within 24 hours, ensuring zero interruption to Government operations.'),
+  ];
+
+  if (v.sample_tasks && v.sample_tasks.length > 0) {
+    children.push(pageBreak(), h1('Sample Tasks'));
+    v.sample_tasks.forEach((task, i) => {
+      children.push(h2(`Sample Task ${i+1}`), para(task));
+    });
+  }
+
+  const doc = makeDoc([{
+    properties: pageProps(),
+    headers: { default: makeHeader(data, volTitle) },
+    footers: { default: makeFooter(data) },
+    children,
+  }]);
+  return await docx.Packer.toBuffer(doc);
+}
+
+async function buildDocxVol2(data) {
+  const v = data.volume2 || {};
+  const volTitle = 'Volume II \u2013 Past Performance';
+
+  const defaultRefs = [
+    { program_name: 'BOMES Hub and Spoke', contract_number: 'HT001423F0097', pm_name: 'Jason Myers', pm_phone: '360-773-7241', pm_email: 'jason.e.myers26.ctr@health.mil', co_name: 'LCDR Keith Laffman', co_phone: '240-401-3361', co_email: 'Keith.m.laffman.mil@health.mil', cor_name: 'Daniel Dang', cor_phone: '202-999-9184', cor_email: 'daniel.dang1.civ@health.mil', contract_type: 'Cost Plus Fixed Fee (CPFF)', period_of_performance: '05/12/2023 \u2013 05/14/2026', total_value: '$4,605,147.60 (Prime) / $1,356,522.33 (SRFed)', prime_or_sub: 'Subcontractor \u2013 IT Data Consulting LLC', overview: null, scope: null, relevance: null, similarity: null },
+    { program_name: 'Military Health Systems Financial Operations Support', contract_number: 'HT001119C0022', pm_name: 'Matthew Tarjick', pm_phone: '410-463-2644', pm_email: 'matthew.tarjick@srfed.com', co_name: 'Jessica Heinke', co_phone: '703-681-1131', co_email: 'Jessica.K.Heinke.civ@health.mil', cor_name: 'Micah Meyers', cor_phone: '202-903-5876', cor_email: 'micah.l.meyers.civ@health.mil', contract_type: 'Firm Fixed Price', period_of_performance: '09/11/2019 \u2013 09/10/2024', total_value: '$16,963,062.42 (Prime) / $1,310,674.64 (SRFed)', prime_or_sub: 'Subcontractor \u2013 Advancia Technologies, LLC', overview: null, scope: null, relevance: null, similarity: null },
+    { program_name: 'GFEBS Global Technical Support', contract_number: 'HT001120C0017', pm_name: 'John Lee', pm_phone: '703-681-7515', pm_email: 'john.w.lee14.mil@health.mil', co_name: 'Jessica Heinke', co_phone: '703-681-1131', co_email: 'Jessica.K.Heinke.civ@health.mil', cor_name: 'Tom Sydes', cor_phone: '703-915-5880', cor_email: 'Thomas.a.sydes.ctr@health.mil', contract_type: 'Firm Fixed Price', period_of_performance: '08/16/2020 \u2013 08/15/2024', total_value: '$76,609,581.34 (Prime) / $493,445.12 (SRFed)', prime_or_sub: 'Subcontractor \u2013 Advancia Technologies, LLC', overview: null, scope: null, relevance: null, similarity: null },
+  ];
+
+  const refs = (v.references && v.references.length > 0) ? v.references : defaultRefs;
+
+  const children = [...coverPageChildren(data, volTitle)];
+
+  refs.forEach((ref, i) => {
+    if (i > 0) children.push(pageBreak());
+    children.push(
+      h1(`Past Performance Reference ${i+1}:  ${ref.program_name || ''}`),
+      ...spacer(),
+      ppRefTable(ref),
+      ...spacer(),
+      h2('Overview'),
+      para(ref.overview || '[Overview of work performed and organizational context.]'),
+      ...spacer(),
+      h2('Scope and Responsibilities'),
+      para(ref.scope || '[Description of SRFed\u2019s specific scope, deliverables, and responsibilities on this contract.]'),
+      ...spacer(),
+      h2('Relevance to This Solicitation'),
+      para(ref.relevance || '[Narrative explaining how this contract\u2019s scope, environment, and challenges map directly to the current requirement\u2019s task areas.]'),
+      ...spacer(),
+      h2('Similarity in Scope, Magnitude, and Complexity'),
+      para(ref.similarity || '[Bullet-level similarity factors: comparable contract value, similar customer set, matching labor categories, aligned mission environment.]'),
+    );
+  });
+
+  const doc = makeDoc([{
+    properties: pageProps(),
+    headers: { default: makeHeader(data, volTitle) },
+    footers: { default: makeFooter(data) },
+    children,
+  }]);
+  return await docx.Packer.toBuffer(doc);
+}
+
+async function buildDocxVol3(data) {
+  const v = data.volume3 || {};
+  const volTitle = 'Volume III \u2013 Price Narrative';
+  const agency = data.agency_name || 'the Government';
+
+  const children = [
+    ...coverPageChildren(data, volTitle),
+    h1('1.  Introduction and Pricing Philosophy'),
+    para(`South River Federal Solutions LLC (SRFed) is committed to delivering a pricing strategy that balances cost competitiveness with operational reliability, workforce retention, and long-term value for ${agency}.`),
+    ...spacer(),
+    para(v.pricing_philosophy || 'Our philosophy centers on a \u201cFair and Reasonable for Long-Term Collective Success\u201d approach. We aligned qualifications to mission-specific needs and structured rates using multiple references, including the Economic Research Institute, common salary benchmarks, previous SRFed contractual pricing data, and deep industry knowledge. Every dollar in our proposal reflects genuine investment in mission capability, not administrative overhead.'),
+    ...spacer(),
+    h1('2.  Labor Categories and Basis of Estimate'),
+    para(v.boe_narrative || 'SRFed developed its Basis of Estimate (BOE) by aligning government-recognized labor categories with the specific objectives and deliverables outlined in the Performance Work Statement. Each LCAT was mapped to the relevant task areas, with estimated hours derived from historical performance data and SRFed\u2019s direct experience supporting analogous DoD programs.'),
+    ...spacer(),
+    para('[Complete BOE narrative here with specific LCATs and hour allocations from this solicitation. Transfer your LCAT structure from your pricing Excel.]', { color: '999999', italics: true }),
+    ...spacer(),
+    lcatTable(v.labor_categories),
+    ...spacer(),
+    h1('3.  Pricing Reasonableness and Risk Mitigation'),
+    para(v.wrap_rate_narrative || 'Pricing was determined based on industry norms, geographic labor rates, SRFed\u2019s GSA MAS schedule (47QRAA25D006B), and SRFed\u2019s internal wrap rate calculations. Base rates were escalated using SRFed\u2019s standard fringe, overhead, G&A, and profit allocations.'),
+    ...spacer(),
+    bullet('Fringe Benefits \u2013 including PTO, 401(k) matching, medical/dental/vision coverage, and performance-based incentives'),
+    bullet('Overhead and G&A \u2013 ensuring organizational infrastructure and compliance support'),
+    bullet('Profit \u2013 applied conservatively to remain cost-competitive while sustaining organizational investment'),
+    ...spacer(),
+    para(v.total_price_narrative || '[INSERT TOTAL PRICE SUMMARY. Copy base year total, option year totals, and grand total from your pricing Excel. Reference the Section B tab.]', { color: '999999', italics: true }),
+    ...spacer(),
+    h1('4.  Compliance Statement'),
+    para('All CLINs are fully priced in accordance with solicitation requirements. All contractor-furnished tools, licenses, and labor costs are incorporated. There will be no uncompensated overtime. SRFed does not intend to subcontract any work.'),
+    ...spacer(),
+    para('SRFed maintains a DCAA-compliant accounting system (audited by DCAA Central Maryland Branch Office and DCMA Mid-Atlantic). SRFed\u2019s GSA MAS Contract Number is 47QRAA25D006B.'),
+    ...spacer(),
+    para(v.compliance_additional || '[Add any solicitation-specific compliance acknowledgements here.]', { color: '999999', italics: true }),
+  ];
+
+  const doc = makeDoc([{
+    properties: pageProps(),
+    headers: { default: makeHeader(data, volTitle) },
+    footers: { default: makeFooter(data) },
+    children,
+  }]);
+  return await docx.Packer.toBuffer(doc);
+}
+
+async function buildDocxVol4(data) {
+  const v = data.volume4 || {};
+  const volTitle = 'Volume IV \u2013 Contract Documentation';
+  const solNum = data.solicitation_number || '[SOLICITATION NUMBER]';
+  const agency = data.agency_name || '[AGENCY]';
+  const reqTitle = data.requirement_title || '[REQUIREMENT]';
+
+  const fillIns = Array.isArray(v.additional_fill_ins) && v.additional_fill_ins.length > 0
+    ? v.additional_fill_ins
+    : ['Acknowledgement of Amendments: Completed', 'Representations and Certifications: Completed in SAM.gov', 'Section B Pricing Inputs: Submitted via required Excel document'];
+
+  const children = [
+    ...coverPageChildren(data, volTitle),
+    h1('Cover Letter'),
+    para(`South River Federal Solutions LLC (SRFed) is pleased to submit this proposal in response to Solicitation ${solNum} for ${reqTitle} in support of ${agency}.`),
+    ...spacer(),
+    para('SRFed is a Service-Disabled Veteran-Owned Small Business (SDVOSB) with demonstrated experience supporting Department of Defense financial management, program management, and data analytics efforts. Our team brings the discipline, clearances, and mission-proven track record to deliver results from Day 1.'),
+    ...spacer(),
+    para(v.cover_letter_additional || 'SRFed acknowledges all amendments to the solicitation and confirms that this proposal is valid for acceptance in accordance with solicitation requirements. We understand that award may be made based on initial proposals and have therefore submitted our best technical and cost solution.'),
+    ...spacer(),
+    para('Respectfully submitted,'),
+    ...spacer(2),
+    para('Matthew Tarjick, CEO'),
+    para('South River Federal Solutions LLC'),
+    para('matthew.tarjick@srfed.com  |  (410) 463-2644'),
+    pageBreak(),
+    h1('Solicitation Fill-Ins'),
+    para('SRFed has completed all required solicitation representations, certifications, and fill-ins in accordance with Section K and all applicable clauses.'),
+    ...spacer(),
+    ...fillIns.map(item => bullet(item)),
+    pageBreak(),
+    h1('Organizational Conflict of Interest (OCI) Mitigation Plan'),
+    para('SRFed has conducted a thorough review of the requirements and has identified no known Organizational Conflicts of Interest (OCI) that would impair its ability to perform this contract objectively. To ensure continued compliance, SRFed implements:'),
+    ...spacer(),
+    bullet('Organizational Firewalls: Segregation of personnel and data between contracts'),
+    bullet('Access Controls: Role-based access ensuring personnel only access data necessary for performance'),
+    bullet('Employee Training: Annual ethics and OCI awareness training for all staff'),
+    bullet('Disclosure Procedures: Immediate notification to the Contracting Officer of any potential OCI'),
+    bullet('Non-Disclosure Agreements: Enforced across all employees and subcontractors'),
+    pageBreak(),
+    h1('Plan for Obtaining Personnel Clearances'),
+    para('All proposed key personnel currently hold at least an Interim SECRET clearance or higher, enabling SRFed to begin performance immediately upon award. SRFed maintains an Active SECRET Facility Clearance (FCL) under DCSA cognizance.'),
+    ...spacer(),
+    para(v.clearance_plan_additional || 'For personnel requiring clearance upgrades, SRFed submits clearance packages within 24\u201348 hours of onboarding through our Facility Security Officer (FSO), who coordinates directly with DCSA to ensure timely adjudication. SRFed\u2019s FSO has successfully processed multiple clearance upgrades with no interruption to contract performance.'),
+    ...spacer(),
+    h1('Facility Clearance Documentation'),
+    boldLabel('Company', 'South River Federal Solutions LLC'),
+    boldLabel('UEI', 'N5RZPM2JPJ21'),
+    boldLabel('CAGE', '8BMQ1'),
+    boldLabel('FCL Level', 'SECRET (Active)'),
+    boldLabel('Address', '3168 Braverton St, Suite 400, Edgewater, MD 21037'),
+    boldLabel('Phone', '(410) 774-6645'),
+    ...spacer(),
+    h1('Government Furnished Property (GFP)'),
+    para(v.gfp || 'SRFed will manage all Government Furnished Property in accordance with applicable DoD/DoN policies and established property accountability requirements, ensuring full lifecycle management from receipt through disposition. SRFed\u2019s Equipment Management Specialist, Mark Agustin, brings 10+ years of logistics and property management experience supporting Army National Guard operations.'),
+    ...spacer(),
+    h1('Cybersecurity Maturity Model Certification (CMMC)'),
+    para(v.cmmc || 'SRFed is currently CMMC Level 1 self-attested and is actively advancing toward CMMC Level 2 certification in partnership with USXCyber, implementing all NIST SP 800-171 security controls required for handling Controlled Unclassified Information (CUI). UEI: N5RZPM2JPJ21 | CAGE: 8BMQ1.'),
+  ];
+
+  const doc = makeDoc([{
+    properties: pageProps(),
+    headers: { default: makeHeader(data, volTitle) },
+    footers: { default: makeFooter(data) },
+    children,
+  }]);
+  return await docx.Packer.toBuffer(doc);
 }
 
 // ─── RENDER DOWNLOAD BUTTONS ──────────────────────────────────────────────────
