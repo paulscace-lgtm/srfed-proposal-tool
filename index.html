@@ -1294,254 +1294,192 @@ function getMimeType(file) {
   return 'application/octet-stream';
 }
 
-// ─── MAIN GENERATION FLOW ─────────────────────────────────────────────────────
+// ─── MAIN GENERATION FLOW (Batch API) ────────────────────────────────────────
 async function runGeneration() {
-  // Hard auth gate — must be signed in with @srfed.com
   if (!msAccount || !msAccount.username.toLowerCase().endsWith('@' + CLIENT_CONFIG.authorizedDomain)) {
     showStatus('error', 'Access denied', `You must be signed in with an @${CLIENT_CONFIG.authorizedDomain} Microsoft account to generate proposals.`);
     return;
   }
-
   const notes   = document.getElementById('additionalNotes').value.trim();
   const genVols = ['1','2','3','4'].filter(n => document.getElementById(`vol${n}`).checked);
-
-  if (rfpFiles.length === 0) {
-    showStatus('warn', 'No documents uploaded', 'Please drop your RFP documents in Step 3 before generating.');
-    return;
-  }
-  if (genVols.length === 0) {
-    showStatus('warn', 'No volumes selected', 'Please select at least one proposal volume to generate.');
-    return;
-  }
+  if (rfpFiles.length === 0) { showStatus('warn','No documents','Drop RFP documents in Step 3 first.'); return; }
+  if (genVols.length === 0)  { showStatus('warn','No volumes','Select at least one volume.'); return; }
+  const apiKey = getApiKey();
+  if (!apiKey) { showStatus('error','No API key','Enter your Anthropic API key in Step 1.'); return; }
 
   setRunning(true);
   document.getElementById('downloadCard').style.display = 'none';
   document.getElementById('logBox').innerHTML = '';
   document.getElementById('logBox').style.display = 'block';
 
-  showStatus('info', 'Generating your proposal…', 'Please wait while Claude writes the proposal volumes.', true);
-
   const allSteps = [
-    { text: 'Attaching documents',              status: 'active' },
-    { text: 'Extracting requirements',          status: '' },
-    { text: 'Writing proposal volumes',         status: '' },
-    { text: 'Assembling Word documents',        status: '' },
+    { text: 'Preparing documents',     status: 'active' },
+    { text: 'Submitting batch job',    status: '' },
+    { text: 'Anthropic processing',    status: '' },
+    { text: 'Building Word documents', status: '' },
   ];
+  showStatus('info', 'Preparing proposal generation...', 'Attaching documents and building prompt.', true);
   setProgress(5, allSteps);
-  log('Starting proposal generation...');
-  log(`RFP files: ${rfpFiles.map(f => f.name).join(', ')}`);
-  if (companyFiles.length) log(`Company files: ${companyFiles.map(f => f.name).join(', ')}`);
+  log('Starting batch proposal generation...');
 
   try {
-    // ── STEP 1: Attach documents ───────────────────────────────────────────
-    log('Attaching documents...');
-    allSteps[0].status = 'active'; setProgress(10, allSteps);
-
+    // Build message content
     const messageContent = [];
 
-    // Attach RFP files
     for (const file of rfpFiles.slice(0, 10)) {
       const b64 = await fileToBase64(file);
-      const mime = getMimeType(file);
-      if (mime === 'application/pdf') {
-        messageContent.push({
-          type: 'document',
-          source: { type: 'base64', media_type: 'application/pdf', data: b64 }
-        });
-        log(`  Attached RFP: ${file.name} (PDF)`);
+      if (getMimeType(file) === 'application/pdf') {
+        messageContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } });
+        log(`  Attached RFP: ${file.name}`);
       } else {
         messageContent.push({ type: 'text', text: `[RFP Document: ${file.name}]` });
-        log(`  Referenced RFP: ${file.name}`, 'warn');
       }
     }
-
-    // Attach company files
     for (const file of companyFiles.slice(0, 5)) {
       const b64 = await fileToBase64(file);
-      const mime = getMimeType(file);
-      if (mime === 'application/pdf') {
+      if (getMimeType(file) === 'application/pdf') {
         messageContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } });
-        log(`  Attached company doc: ${file.name} (PDF)`);
+        log(`  Attached company doc: ${file.name}`);
       } else {
         messageContent.push({ type: 'text', text: `[Company Document: ${file.name}]` });
-        log(`  Referenced company doc: ${file.name}`, 'warn');
       }
     }
 
-    allSteps[0].status = 'done'; allSteps[1].status = 'active'; setProgress(20, allSteps);
-
-    // Build the master prompt — inject verified assumptions from Step 4
     const assumptionsContext = assumptions.length > 0 ? buildAcceptedAssumptionsContext() : '';
-    messageContent.push({
-      type: 'text',
-      text: `You are an expert government proposal writer for ${CLIENT_CONFIG.companyFullName} (${CLIENT_CONFIG.companyShortName}), a ${CLIENT_CONFIG.businessType} headquartered in ${CLIENT_CONFIG.address}.
+    const ppBlock = CLIENT_CONFIG.pastPerformance.map((p,i) =>
+      `${i+1}. **${p.programName}** (${p.contractNumber})\n   - Customer: ${p.customer}\n   - ${p.period} | ${p.value} | ${p.contractType}\n   - ${p.work}`
+    ).join('\n\n');
+    const personnelBlock = CLIENT_CONFIG.keyPersonnel.map(p => `- ${p.name}, ${p.title} -- ${p.background}`).join('\n');
 
-I have provided the RFP/solicitation documents above. Your job is to:
-1. Extract all proposal metadata directly from the documents (solicitation number, requirement title, agency name, agency address, POC name/email/phone, submission date)
-2. Generate complete, tailored proposal content for the requested volumes
-
-## VOLUMES REQUESTED
-${genVols.map(v => `Volume ${v}`).join(', ')}
-
-## COMPANY PROFILE (use this to write about the company)
-- Full Legal Name: ${CLIENT_CONFIG.companyFullName}
-- Abbreviation: ${CLIENT_CONFIG.companyShortName}
-- Business Type: ${CLIENT_CONFIG.businessType}
-- Address: ${CLIENT_CONFIG.address}
-- CAGE: ${CLIENT_CONFIG.cage} | UEI: ${CLIENT_CONFIG.uei}${CLIENT_CONFIG.gsaMas ? ` | GSA MAS: ${CLIENT_CONFIG.gsaMas}` : ''}
-- Clearances: ${CLIENT_CONFIG.clearances}
-
-## KEY PERSONNEL
-${CLIENT_CONFIG.keyPersonnel.map(p => `- ${p.name}, ${p.title} — ${p.background}`).join('\n')}
-
-## CORE CAPABILITIES
-${CLIENT_CONFIG.capabilities.join(', ')}
-
-## SYSTEMS EXPERTISE
-${CLIENT_CONFIG.systemsExpertise.join(', ')}
-
-## PAST PERFORMANCE (use these as references when writing Vol II)
-${CLIENT_CONFIG.pastPerformance.map((p, i) => `${i+1}. **${p.programName}** (${p.contractNumber})
-   - Customer: ${p.customer}
-   - Period: ${p.period} | Value: ${p.value} | ${p.contractType}
-   - Work: ${p.work}`).join('\n\n')}
-
-## WRITING STYLE GUIDE
-${CLIENT_CONFIG.writingStyle.map(s => `- ${s}`).join('\n')}
-- Signature phrases: ${CLIENT_CONFIG.signaturePhrases.join(', ')}
-
-## ADDITIONAL NOTES FROM PROPOSAL MANAGER
-${notes || 'No additional notes provided.'}
-${assumptionsContext}
-
-## YOUR TASK
-Analyze the RFP documents provided and generate proposal content. Return a JSON object (and ONLY a JSON object, no markdown fences, no preamble) with this structure:
-
-{
-  "solicitation_number": "string",
-  "requirement_title": "string",
-  "agency_name": "string",
-  "agency_address": "string",
-  "agency_poc": "string",
-  "agency_poc_email": "string",
-  "agency_poc_phone": "string",
-  "submission_date": "string",
-  "output_prefix": "${CLIENT_CONFIG.companyShortName}_Proposal",
-  "volume1": {
-    "understanding_of_requirement": "2-3 paragraph prose narrative showing deep understanding of THIS specific requirement",
-    "technical_approach": "3-4 paragraph prose narrative of the technical approach tailored to THIS PWS/SOW task areas",
-    "integrated_methodology": "2 paragraph narrative",
-    "staffing_plan": "narrative describing the staffing approach for this specific requirement",
-    "key_personnel_intro": "paragraph introducing key personnel",
-    "sample_tasks": ["array of 2-3 sample task responses tailored to this specific RFP if sample tasks are requested"]
-  },
-  "volume2": {
-    "references": [
-      {
-        "program_name": "string",
-        "contract_number": "string",
-        "pm_name": "string", "pm_phone": "string", "pm_email": "string",
-        "co_name": "string", "co_phone": "string", "co_email": "string",
-        "cor_name": "string", "cor_phone": "string", "cor_email": "string",
-        "contract_type": "string",
-        "period_of_performance": "string",
-        "total_value": "string",
-        "prime_or_sub": "string",
-        "overview": "2 paragraph prose overview tailored to show relevance",
-        "scope": "prose paragraph plus bullet points of scope items",
-        "relevance": "prose explaining how this maps to THIS solicitation's task areas",
-        "similarity": "bullet points of similarity factors"
-      }
-    ]
-  },
-  "volume3": {
-    "pricing_philosophy": "2 paragraph narrative tailored to THIS agency/requirement",
-    "boe_narrative": "2 paragraph BOE narrative (leave $ amounts as placeholders like [RATE] for manual entry)",
-    "wrap_rate_narrative": "narrative explaining wrap rate components",
-    "total_price_narrative": "narrative with [TOTAL] and [BASE YEAR TOTAL] placeholders",
-    "compliance_additional": "any solicitation-specific compliance items found in the RFP",
-    "labor_categories": []
-  },
-  "volume4": {
-    "cover_letter_additional": "any solicitation-specific acknowledgements or statements needed",
-    "additional_fill_ins": ["list of specific fill-ins required by this solicitation"],
-    "clearance_plan_additional": "any solicitation-specific clearance requirements",
-    "gfp": "GFP section tailored to this requirement",
-    "cmmc": "CMMC section with any requirement-specific details"
-  }
-}`
+    messageContent.push({ type: 'text', text:
+      `You are an expert government proposal writer for ${CLIENT_CONFIG.companyFullName} (${CLIENT_CONFIG.companyShortName}), a ${CLIENT_CONFIG.businessType}.\n\n` +
+      `Extract all proposal metadata from the RFP documents above and generate complete tailored proposal content.\n\n` +
+      `## VOLUMES REQUESTED: ${genVols.map(v => 'Volume ' + v).join(', ')}\n\n` +
+      `## COMPANY PROFILE\n` +
+      `Name: ${CLIENT_CONFIG.companyFullName} | Type: ${CLIENT_CONFIG.businessType}\n` +
+      `Address: ${CLIENT_CONFIG.address}\n` +
+      `CAGE: ${CLIENT_CONFIG.cage} | UEI: ${CLIENT_CONFIG.uei}` + (CLIENT_CONFIG.gsaMas ? ` | GSA MAS: ${CLIENT_CONFIG.gsaMas}` : '') + `\n` +
+      `Clearances: ${CLIENT_CONFIG.clearances}\n\n` +
+      `## KEY PERSONNEL\n${personnelBlock}\n\n` +
+      `## CAPABILITIES: ${CLIENT_CONFIG.capabilities.join(', ')}\n\n` +
+      `## SYSTEMS: ${CLIENT_CONFIG.systemsExpertise.join(', ')}\n\n` +
+      `## PAST PERFORMANCE\n${ppBlock}\n\n` +
+      `## WRITING STYLE\n${CLIENT_CONFIG.writingStyle.join('\n')}\n` +
+      `Signature phrases: ${CLIENT_CONFIG.signaturePhrases.join(', ')}\n\n` +
+      `## NOTES: ${notes || 'None.'}\n` +
+      assumptionsContext + `\n\n` +
+      `Return ONLY a JSON object, no markdown fences, no preamble:\n` +
+      `{"solicitation_number":"","requirement_title":"","agency_name":"","agency_address":"",` +
+      `"agency_poc":"","agency_poc_email":"","agency_poc_phone":"","submission_date":"",` +
+      `"output_prefix":"${CLIENT_CONFIG.companyShortName}_Proposal",` +
+      `"volume1":{"understanding_of_requirement":"2-3 paragraph prose showing deep understanding of THIS specific requirement","technical_approach":"3-4 paragraph prose tailored to THIS PWS/SOW task areas","integrated_methodology":"2 paragraph narrative","staffing_plan":"staffing narrative for this requirement","key_personnel_intro":"paragraph introducing key personnel","sample_tasks":[]},` +
+      `"volume2":{"references":[{"program_name":"","contract_number":"","pm_name":"","pm_phone":"","pm_email":"","co_name":"","co_phone":"","co_email":"","cor_name":"","cor_phone":"","cor_email":"","contract_type":"","period_of_performance":"","total_value":"","prime_or_sub":"","overview":"2 paragraph prose","scope":"prose plus bullets","relevance":"prose mapping to THIS solicitation task areas","similarity":"bullet points"}]},` +
+      `"volume3":{"pricing_philosophy":"2 paragraph narrative","boe_narrative":"2 paragraph with [RATE] placeholders","wrap_rate_narrative":"wrap rate narrative","total_price_narrative":"narrative with [TOTAL] placeholders","compliance_additional":"solicitation-specific items","labor_categories":[]},` +
+      `"volume4":{"cover_letter_additional":"acknowledgements","additional_fill_ins":["fill-ins required"],"clearance_plan_additional":"clearance requirements","gfp":"GFP section","cmmc":"CMMC section"}}`
     });
 
-    allSteps[0].status = 'done';
-    allSteps[1].status = 'active';
-    setProgress(20, allSteps);
+    allSteps[0].status = 'done'; allSteps[1].status = 'active';
+    setProgress(15, allSteps);
+    showStatus('info', 'Submitting batch job...', 'Sending to Anthropic for processing. Do not close this tab.', true);
+    log('Submitting batch job to Anthropic...');
 
-    // Call Claude API
-    const apiKey = getApiKey();
-    if (!apiKey) throw new Error('No API key found. Enter your Anthropic API key in Step 1 after signing in.');
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    // Submit batch
+    const batchResp = await fetch('https://api.anthropic.com/v1/messages/batches', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 8000,
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ requests: [{ custom_id: 'proposal_gen', params: {
+        model: 'claude-sonnet-4-5', max_tokens: 8000,
         messages: [{ role: 'user', content: messageContent }]
-      })
+      }}]})
     });
 
-    if (!response.ok) {
-      const err = await response.text();
-      throw new Error(`Claude API error ${response.status}: ${err}`);
+    if (!batchResp.ok) throw new Error(`Batch submit error ${batchResp.status}: ${await batchResp.text()}`);
+    const batchData = await batchResp.json();
+    const batchId   = batchData.id;
+    log(`Batch submitted. ID: ${batchId}`);
+
+    allSteps[1].status = 'done'; allSteps[2].status = 'active';
+    setProgress(25, allSteps);
+
+    // Poll every 15 seconds, up to 15 minutes
+    let pollCount = 0;
+    let resultText = null;
+    while (pollCount < 60 && !resultText) {
+      await new Promise(r => setTimeout(r, 15000));
+      pollCount++;
+      const elapsed = pollCount * 15;
+
+      const pollResp = await fetch(`https://api.anthropic.com/v1/messages/batches/${batchId}`, {
+        headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true' }
+      });
+      if (!pollResp.ok) { log(`Poll ${pollCount} error -- retrying...`, 'warn'); continue; }
+
+      const pollData = await pollResp.json();
+      const elapsed2 = pollCount * 15;
+      log(`Status: ${pollData.processing_status} (${elapsed2}s elapsed)`);
+      setProgress(Math.min(25 + (pollCount/60)*45, 70), allSteps);
+      showStatus('info', `Anthropic processing... (${elapsed2}s)`,
+        'Do not close this tab. Your proposal is being written.', true);
+
+      if (pollData.processing_status === 'ended') {
+        const resResp = await fetch(`https://api.anthropic.com/v1/messages/batches/${batchId}/results`, {
+          headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true' }
+        });
+        if (!resResp.ok) throw new Error(`Results fetch error ${resResp.status}`);
+        const ndjson = await resResp.text();
+        for (const line of ndjson.trim().split('\n').filter(l => l.trim())) {
+          const r = JSON.parse(line);
+          if (r.custom_id === 'proposal_gen') {
+            if (r.result && r.result.type === 'succeeded') {
+              resultText = r.result.message.content.map(c => c.text || '').join('');
+            } else {
+              throw new Error('Batch processing error: ' + JSON.stringify(r.result && r.result.error));
+            }
+            break;
+          }
+        }
+      }
     }
 
-    const apiData = await response.json();
-    const rawText = apiData.content.filter(b => b.type === 'text').map(b => b.text).join('');
-    log('Claude API response received. Parsing...');
+    if (!resultText) throw new Error('Batch timed out after 15 minutes or returned no result.');
 
-    allSteps[1].status = 'done';
-    allSteps[2].status = 'done';
-    allSteps[3].status = 'active';
-    setProgress(50, allSteps);
+    allSteps[2].status = 'done'; allSteps[3].status = 'active';
+    setProgress(75, allSteps);
+    showStatus('info', 'Building Word documents...', 'Assembling .docx files now.', true);
+    log('Batch complete. Parsing proposal data...');
 
     // Parse JSON
-    let proposalData;
-    try {
-      const clean = rawText.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();
-      proposalData = JSON.parse(clean);
-    } catch(e) {
-      log('JSON parse failed, attempting extraction...', 'warn');
-      const match = rawText.match(/\{[\s\S]+\}/);
-      if (match) {
-        proposalData = JSON.parse(match[0]);
-      } else {
-        throw new Error('Could not parse Claude response as JSON. Raw: ' + rawText.substring(0, 300));
+    let raw = resultText.trim()
+      .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
+    if (!raw.endsWith('}')) {
+      const lb = raw.lastIndexOf('}');
+      if (lb > 0) {
+        raw = raw.substring(0, lb+1);
+        const ob = (raw.match(/\[/g)||[]).length - (raw.match(/\]/g)||[]).length;
+        for (let i=0; i<ob; i++) raw += ']';
+        raw += '}';
       }
     }
+    let proposalData;
+    try { proposalData = JSON.parse(raw); }
+    catch(e) {
+      const m = raw.match(/\{[\s\S]+\}/);
+      if (m) proposalData = JSON.parse(m[0]);
+      else throw new Error('Could not parse proposal JSON: ' + raw.substring(0,200));
+    }
 
-    // Claude extracts all metadata from the RFP docs; just set the output prefix
-    proposalData.output_prefix = (CLIENT_CONFIG.companyShortName + '_Proposal_' + (proposalData.solicitation_number || 'Draft')).replace(/[^a-zA-Z0-9_]/g,'_');
+    proposalData.output_prefix = (CLIENT_CONFIG.companyShortName + '_Proposal_' +
+      (proposalData.solicitation_number || 'Draft')).replace(/[^a-zA-Z0-9_]/g,'_');
+    log('Parsed. Sol: ' + (proposalData.solicitation_number || 'not found') + ' | Agency: ' + (proposalData.agency_name || 'not found'));
 
-    log('Proposal data extracted successfully.');
-    log('Solicitation: ' + (proposalData.solicitation_number || 'not found in docs'));
-    log('Agency: ' + (proposalData.agency_name || 'not found in docs'));
-
-    allSteps[3].status = 'done';
-    allSteps[4].status = 'done';
-    allSteps[5].status = 'done';
-    allSteps[6].status = 'done';
-    allSteps[7].status = 'active';
-    setProgress(75, allSteps);
-
-    // ── STEP 2: Generate real .docx files client-side ───────────────────
-    log('Building Word documents...');
     const docs = await generateDocsClientSide(proposalData, genVols);
-
-    allSteps[7].status = 'done';
+    allSteps[3].status = 'done';
     setProgress(100, allSteps);
-
-    log('All documents generated successfully! 🎉');
-    showStatus('success', 'Proposal generated!', 'Your proposal volumes are ready to download. Review all content before submission.');
-
+    log('All documents generated!');
+    showStatus('success', 'Proposal ready!', 'Your proposal volumes are ready to download. Review all content before submission.');
     renderDownloads(docs);
     setRunning(false);
 
