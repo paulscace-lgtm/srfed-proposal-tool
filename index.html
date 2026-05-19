@@ -1112,15 +1112,44 @@ Return ONLY a JSON object, no markdown, no preamble:
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 4000,
+        max_tokens: 8000,
         messages: [{ role: 'user', content: messageContent }]
       })
     });
 
     if (!response.ok) throw new Error(`API error ${response.status}: ${await response.text()}`);
     const data = await response.json();
-    const raw  = data.content.map(c => c.text || '').join('').trim().replace(/^```json|```$/g,'').trim();
-    const parsed = JSON.parse(raw);
+    let raw = data.content.map(c => c.text || '').join('').trim();
+
+    // Strip markdown fences if present
+    raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/,'').trim();
+
+    // If truncated (no closing brace), attempt to close the JSON gracefully
+    if (!raw.endsWith('}')) {
+      // Find the last complete array entry and close out
+      const lastBrace = raw.lastIndexOf('}');
+      if (lastBrace > 0) {
+        raw = raw.substring(0, lastBrace + 1);
+        // Close any open arrays and the root object
+        const openBrackets = (raw.match(/\[/g) || []).length - (raw.match(/\]/g) || []).length;
+        for (let i = 0; i < openBrackets; i++) raw += ']';
+        raw += '}';
+      }
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch(parseErr) {
+      // Last resort: extract whatever arrays we can find
+      console.warn('JSON parse failed, attempting extraction:', parseErr.message);
+      const rfpMatch     = raw.match(/"rfp"\s*:\s*(\[[\s\S]*?\])/);
+      const companyMatch = raw.match(/"company"\s*:\s*(\[[\s\S]*?\])/);
+      parsed = {
+        rfp:     rfpMatch     ? JSON.parse(rfpMatch[1])     : [],
+        company: companyMatch ? JSON.parse(companyMatch[1]) : [],
+      };
+    }
 
     allSteps[3].status = 'done';
     setProgress(100, allSteps);
