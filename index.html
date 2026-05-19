@@ -284,13 +284,79 @@
   .full-row { margin-top: 24px; }
 
   .tip { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* ── STEP LOCK OVERLAY ── */
+  .step-locked { position: relative; }
+  .step-locked::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: rgba(240,244,248,0.75);
+    border-radius: 10px;
+    pointer-events: all;
+    z-index: 10;
+  }
+  .step-locked .lock-msg {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    z-index: 11; text-align: center; pointer-events: none;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  .step-locked .lock-msg .lock-icon { font-size: 28px; }
+  .step-locked .lock-msg .lock-text { font-size: 13px; color: var(--blue-gray); font-weight: 600; white-space: nowrap; }
+
+  /* ── ASSUMPTION CARDS ── */
+  .assumption-panel { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+  .assumption-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    background: white;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .assumption-card.accepted { border-color: #86efac; background: var(--success-bg); }
+  .assumption-card.rejected { border-color: #fca5a5; background: var(--error-bg); }
+  .assumption-card.pending  { border-color: #fcd34d; background: var(--warn-bg); }
+  .assumption-top { display: flex; align-items: flex-start; gap: 10px; }
+  .assumption-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 3px; }
+  .assumption-value { font-size: 13px; color: var(--text); flex: 1; line-height: 1.4; }
+  .assumption-actions { display: flex; gap: 6px; flex-shrink: 0; margin-top: 2px; }
+  .assumption-btn {
+    width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid;
+    font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    background: white; transition: all 0.15s; flex-shrink: 0;
+  }
+  .assumption-btn.accept { border-color: #22c55e; color: #22c55e; }
+  .assumption-btn.accept:hover, .assumption-btn.accept.active { background: #22c55e; color: white; }
+  .assumption-btn.reject { border-color: #ef4444; color: #ef4444; }
+  .assumption-btn.reject:hover, .assumption-btn.reject.active { background: #ef4444; color: white; }
+  .assumption-edit { margin-top: 8px; display: none; }
+  .assumption-edit input {
+    width: 100%; padding: 7px 10px; border: 1px solid var(--border);
+    border-radius: 6px; font-size: 13px; font-family: inherit;
+  }
+  .assumption-edit input:focus { outline: none; border-color: var(--mid-blue); }
+  .assumption-edit .edit-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .assumptions-summary {
+    display: flex; gap: 12px; margin-bottom: 14px; flex-wrap: wrap;
+  }
+  .summary-pill {
+    padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  }
+  .summary-pill.accepted { background: var(--success-bg); color: var(--success); }
+  .summary-pill.rejected { background: var(--error-bg);   color: var(--error); }
+  .summary-pill.pending  { background: var(--warn-bg);    color: var(--warn); }
+  .section-label {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .6px; color: var(--blue-gray); margin: 16px 0 8px 0;
+    padding-bottom: 4px; border-bottom: 1px solid var(--border);
+  }
+
 </style>
 </head>
 <body>
 
 <header class="app-header">
   <div class="header-left">
-    <img class="logo-img" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAAgCAYAAABHA7voAAABCGlDQ1BJQ0MgUHJvZmlsZQAAeJxjYGA8wQAELAYMDLl5JUVB7k4KEZFRCuwPGBiBEAwSk4sLGHADoKpv1yBqL+viUYcLcKakFicD6Q9ArFIEtBxopAiQLZIOYWuA2EkQtg2IXV5SUAJkB4DYRSFBzkB2CpCtkY7ETkJiJxcUgdT3ANk2uTmlyQh3M/Ck5oUGA2kOIJZhKGYIYnBncAL5H6IkfxEDg8VXBgbmCQixpJkMDNtbGRgkbiHEVBYwMPC3MDBsO48QQ4RJQWJRIliIBYiZ0tIYGD4tZ2DgjWRgEL7AwMAVDQsIHG5TALvNnSEfCNMZchhSgSKeDHkMyQx6QJYRgwGDIYMZAKbWPz9HbOBQAAAEG0lEQVR42u2YW2xUVRSGv33OmVvbaTsdepnepu0USy8xUJRCBDWKELwAD8RbgsYHefBNjImXaIgPGn3SR02MJmqosQnEYFGI2AbFIlhDBLG0g/Q2GaaX6XTotD0zZ28fJq2+msw0Q+1K9ss5Z+fk3//aa/3rF0opxSoOjVUeawDXAP6HUCq9VjKMlfyZEKuUQSnTzJ0PJrgaWkQBUq0SgFKBJRVCwJvHJ/iwJ4oAUpZErgDKrAK0JGgCbIagbyjBqXMxPuqZYfpWCruhoWki6yBFthq9VGlwvQNzdP4UY2I2RXmxgSkFz2x1cq2/h7aWJjraW1BKIbJ0QbMC0JKga/D6V2GGIiaHd6+jozHv3/WUa8Exjh47TWX5Op4/uBcpJZqm5T5ASyp0TXDk+AQmDt7eX7j8ruvsMAAHdviXn33e9R2GofPk/p1IqdC0zDJpZCMtzw0lOD8Y58WNl/msK0mp10NroJypaAyA8bFR/giGiUxG8RS7+aX/Kn+NhPDX+JBKoWUwXTPGoFKKpCWxGzrvnIyxvV7DDF9GaTaKCpycHVxgRhYBUKLPsuMOJ7H4PJZUeD2FXLz0J4cO7iOZSmHoesbuZMYYFEJgN3RMM8mumik2b6iHDdsIT8/xZe8ILx03KLKFAIgli3j/cY2n7m+mzJOPZUm6TvQwPBrGX1ORWym6lACRySjfnD5H9/d9NK+vZXPbIRLxKGd6+9kUaObIo1F8tvSeUNLGpkARZ3rPs/fBdvLcxdjtNp5+4Qi77tvCs0/swV9dsXxwOdEHF80k4YlpIpNR7HY7sTmTT85EKPVVYc3H6L4wiaOwFEdhKd0XJrHmY3jLK/n0h5tMxxfQlKTaV0Z9rQ+X05m7VXRkPMLRrhO0duzksffCBKrBJhPEzXwsPX2eupS4bXOktDyGRuHb13zUFCsC/kocdiM3q6hSilTKoraqDH+1j/FQmLtaXPjz4lyfcvDKvhJuTCyggPoyFx+cTFHvlXgLDC7f1LgyU8jh9QZmysKmaxkrMhllUCmFAsZCET7+4msuiXv4cWCWumJJpdfN7KKFAoocOuNTtxieETywwcWMlc9bB6roaHChSLeanOyDQgiUVNRWlbNlYxPmbxext7TTN5Tg10EDnHr6wwWN+irJ7mYHsxTw0J0etgZcyyIh56XakuzqPHaa68EgcXcrfSEPkTkJQuDLg8YKQVy6aKvz8OojJcvy7rYR20sCuv/3IW4EB6hu7uDd7hg2IdE0g8bKAvZscrMt4FxWQLfVNJFm8h9tOZOwaHg5SHQqyak36mivc+DNN7LG3IrMg0vznpmSFOfpPLe9kIc73Nzb5KLz5xhXxhfRtexO92IljF+p0n7MYNgklrC4u8G1cj7QmrO9Zhuu2Yb/nxRdA5iF+BuOMNDYy/cF3AAAAABJRU5ErkJggg==" alt="SRFed Logo"/>
+    <img class="logo-img" id="appLogo" src="" alt="Logo"/>
     <div class="logo-text">SRFed Proposal Generator</div>
   </div>
   <div id="msSignedInArea" style="display:none;margin-left:auto">
@@ -320,17 +386,17 @@
     </div>
   </div>
 
-  <!-- ROW 1: Step 1 (Sign in) LEFT | Step 2 (SharePoint folders) RIGHT -->
+  <!-- ── ROW 1: Step 1 | Step 2 ───────────────────────────────────────────── -->
   <div class="two-col" style="margin-bottom:24px">
 
-    <!-- Step 1: Sign in with Microsoft -->
+    <!-- Step 1: Sign in -->
     <div class="card">
       <div class="card-header"><span class="icon">🔐</span> Step 1: Sign In with Microsoft</div>
       <div class="card-body">
         <div id="step1SignedOut" style="text-align:center;padding:16px 0">
           <div style="font-size:40px;margin-bottom:12px">🔒</div>
           <div style="font-weight:600;font-size:15px;margin-bottom:8px;color:var(--blue)">Sign in to get started</div>
-          <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Use your South River Federal Solutions Microsoft 365 account to authenticate and unlock SharePoint access.</p>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Use your company Microsoft 365 account to authenticate and unlock SharePoint access.</p>
           <button class="ms-login-btn" onclick="msLogin()" style="margin:0 auto;display:inline-flex;padding:10px 20px;font-size:14px">
             <svg class="ms-icon" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
               <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
@@ -346,12 +412,30 @@
           <div style="font-weight:600;font-size:15px;margin-bottom:6px;color:var(--success)">Signed In</div>
           <div style="font-size:13px;color:var(--muted)" id="step1AccountLine">—</div>
           <button onclick="msLogout()" style="margin-top:14px;background:none;border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;color:var(--muted);cursor:pointer;">Sign out</button>
+          <!-- API Key input -->
+          <div style="margin-top:20px;text-align:left;border-top:1px solid var(--border);padding-top:16px">
+            <label style="display:block;font-size:12px;font-weight:700;color:var(--blue);margin-bottom:6px">
+              🔑 Anthropic API Key
+            </label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..."
+                style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:monospace"
+                oninput="saveApiKey(this.value)"/>
+              <button onclick="toggleApiKeyVisibility()" id="apiKeyToggle"
+                style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;font-size:14px"
+                title="Show/hide key">👁</button>
+            </div>
+            <div id="apiKeyStatus" style="font-size:11px;margin-top:5px;color:var(--muted)">
+              Key stored in session only — cleared when you close the tab.
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Step 2: SharePoint Folders -->
-    <div class="card">
+    <!-- Step 2: SharePoint -->
+    <div class="card step-locked" id="step2Card">
+      <div class="lock-msg"><span class="lock-icon">🔒</span><span class="lock-text">Complete Step 1 first</span></div>
       <div class="card-header"><span class="icon">🔗</span> Step 2: Connect SharePoint</div>
       <div class="card-body">
         <div id="spSignedOut" style="text-align:center;padding:24px 0;color:var(--muted)">
@@ -365,111 +449,284 @@
           </div>
           <div class="form-group">
             <label>Past Performance Folder URL</label>
-            <input type="text" id="spPP" placeholder="https://srfed.sharepoint.com/.../Past Performance"/>
+            <input type="text" id="spPP" placeholder="https://yourcompany.sharepoint.com/.../Past Performance"/>
           </div>
           <div class="form-group">
             <label>Resumes Folder URL</label>
-            <input type="text" id="spResumes" placeholder="https://srfed.sharepoint.com/.../Resumes"/>
+            <input type="text" id="spResumes" placeholder="https://yourcompany.sharepoint.com/.../Resumes"/>
           </div>
           <div class="form-group" style="margin-bottom:0">
             <label>Boilerplate / Capabilities Folder URL</label>
-            <input type="text" id="spBoilerplate" placeholder="https://srfed.sharepoint.com/.../Boilerplate"/>
+            <input type="text" id="spBoilerplate" placeholder="https://yourcompany.sharepoint.com/.../Boilerplate"/>
           </div>
-          <p class="tip" style="margin-top:10px">Leave any folder blank to skip it for this run.</p>
+          <p class="tip" style="margin-top:10px">Leave any folder blank to skip it. Step 2 is optional — company data from your profile will be used if skipped.</p>
         </div>
       </div>
     </div>
 
   </div>
 
-  <!-- ROW 2: Step 3 (Drop RFP) LEFT | Step 4 (Notes + Volumes + Generate) RIGHT -->
-  <div class="two-col">
+  <!-- ── ROW 2: Step 3 (two drop zones) ──────────────────────────────────── -->
+  <div class="card step-locked" id="step3Card" style="margin-bottom:24px">
+    <div class="lock-msg"><span class="lock-icon">🔒</span><span class="lock-text">Complete Step 1 first</span></div>
+    <div class="card-header"><span class="icon">📁</span> Step 3: Drop Documents</div>
+    <div class="card-body">
+      <div class="two-col" style="gap:20px">
 
-    <!-- Step 3: Drop RFP Documents -->
-    <div>
-      <div class="card" style="margin-bottom:24px">
-        <div class="card-header"><span class="icon">📁</span> Step 3: Drop RFP Documents</div>
-        <div class="card-body">
-          <div class="drop-zone" id="dropZone">
-            <input type="file" id="fileInput" multiple accept=".pdf,.docx,.doc,.xlsx,.xls"/>
+        <!-- Left: RFP / PWS documents -->
+        <div>
+          <div class="section-label">📄 RFP / PWS / Solicitation Documents</div>
+          <div class="drop-zone" id="dropZoneRFP">
+            <input type="file" id="fileInputRFP" multiple accept=".pdf,.docx,.doc,.xlsx,.xls"/>
             <div class="dz-icon">📂</div>
-            <div class="dz-title">Drag &amp; Drop RFP Files Here</div>
-            <div class="dz-sub">PDF, Word, Excel · Multiple files supported</div>
+            <div class="dz-title">Drop RFP Files Here</div>
+            <div class="dz-sub">SOW, PWS, RFP, amendments · PDF, Word, Excel</div>
           </div>
-          <div class="file-list" id="fileList"></div>
-          <p class="tip" style="margin-top:12px">💡 Claude will automatically extract the solicitation number, agency, POC, submission date, and requirement title from your documents.</p>
+          <div class="file-list" id="fileListRFP"></div>
+        </div>
+
+        <!-- Right: Company / past performance documents -->
+        <div>
+          <div class="section-label">🏢 Company Documents <span style="font-weight:400;color:var(--muted)">(optional if SharePoint connected)</span></div>
+          <div class="drop-zone" id="dropZoneCompany">
+            <input type="file" id="fileInputCompany" multiple accept=".pdf,.docx,.doc,.xlsx,.xls"/>
+            <div class="dz-icon">🏢</div>
+            <div class="dz-title">Drop Company Files Here</div>
+            <div class="dz-sub">Past performance write-ups, resumes, capability statements</div>
+          </div>
+          <div class="file-list" id="fileListCompany"></div>
+        </div>
+
+      </div>
+      <p class="tip" style="margin-top:16px">💡 RFP documents are required. Company documents supplement your profile data — drop them here or connect SharePoint in Step 2.</p>
+    </div>
+  </div>
+
+  <!-- ── ROW 3: Step 4 (Analyze + Review) full width ─────────────────────── -->
+  <div class="card step-locked" id="step4Card" style="margin-bottom:24px">
+    <div class="lock-msg"><span class="lock-icon">🔒</span><span class="lock-text">Drop RFP documents in Step 3 first</span></div>
+    <div class="card-header"><span class="icon">🔍</span> Step 4: Analyze &amp; Confirm Assumptions</div>
+    <div class="card-body">
+      <p style="font-size:14px;color:var(--muted);margin-bottom:18px">Claude will analyze your documents and surface its assumptions. Review each one — accept, reject, or correct before writing begins. Rejected assumptions will be excluded from the proposal.</p>
+      <button class="btn btn-primary" id="analyzeBtn" onclick="runAnalysis()" disabled>
+        <span id="analyzeBtnIcon">🔍</span>
+        <span id="analyzeBtnText">Analyze Documents</span>
+      </button>
+      <span style="font-size:12px;color:var(--muted);margin-left:12px">Runs analysis on both RFP and company documents simultaneously.</span>
+
+      <!-- Results panels — hidden until analysis runs -->
+      <div id="analysisResults" style="display:none;margin-top:24px">
+        <div class="assumptions-summary" id="assumptionsSummary"></div>
+        <div class="two-col" style="gap:20px;align-items:start">
+
+          <!-- Left: RFP assumptions -->
+          <div>
+            <div class="section-label">📄 RFP / Solicitation Assumptions</div>
+            <div class="assumption-panel" id="rfpAssumptions"></div>
+          </div>
+
+          <!-- Right: Company / past performance assumptions -->
+          <div>
+            <div class="section-label">🏢 Company &amp; Past Performance Assumptions</div>
+            <div class="assumption-panel" id="companyAssumptions"></div>
+          </div>
+
+        </div>
+        <div id="reviewGate" style="margin-top:20px;padding:12px 16px;background:var(--warn-bg);border:1px solid #fcd34d;border-radius:8px;font-size:13px;color:var(--warn);display:none">
+          ⚠️ Please review all assumptions above before continuing. <span id="pendingCount"></span> still pending.
+        </div>
+        <div id="reviewComplete" style="margin-top:20px;padding:12px 16px;background:var(--success-bg);border:1px solid #86efac;border-radius:8px;font-size:13px;color:var(--success);display:none">
+          ✅ All assumptions reviewed. You may proceed to Step 5.
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- RIGHT COL: Steps 4 + 5 -->
-    <div>
+  <!-- ── ROW 4: Step 5 | Step 6 ───────────────────────────────────────────── -->
+  <div class="two-col" style="margin-bottom:24px">
 
-      <!-- Step 4: Notes for Claude -->
-      <div class="card" style="margin-bottom:24px">
-        <div class="card-header"><span class="icon">📝</span> Step 4: Additional Notes for Claude</div>
-        <div class="card-body">
-          <div class="form-group" style="margin-bottom:0">
-            <textarea id="additionalNotes" style="min-height:100px" placeholder="Optional: teaming partners, specific focus areas, past performance to emphasize, unique qualifications, or any other context you want Claude to consider when writing the proposal..."></textarea>
-          </div>
-          <p class="tip" style="margin-top:8px">💡 All other proposal details (sol number, agency, POC, date) will be extracted automatically from your RFP documents.</p>
+    <!-- Step 5: Additional Notes -->
+    <div class="card step-locked" id="step5Card">
+      <div class="lock-msg"><span class="lock-icon">🔒</span><span class="lock-text">Complete Step 4 first</span></div>
+      <div class="card-header"><span class="icon">📝</span> Step 5: Additional Notes for Claude</div>
+      <div class="card-body">
+        <div class="form-group" style="margin-bottom:0">
+          <textarea id="additionalNotes" style="min-height:140px" placeholder="Optional: teaming partners, specific focus areas, past performance to emphasize, unique qualifications, or any other context you want Claude to consider..."></textarea>
         </div>
+        <p class="tip" style="margin-top:8px">💡 All proposal metadata is extracted automatically from your documents. Use this box for anything else Claude should know.</p>
       </div>
+    </div>
 
-      <!-- Step 5: Select Volumes + Generate -->
-      <div class="card" style="margin-bottom:24px">
-        <div class="card-header"><span class="icon">🚀</span> Step 5: Select Volumes &amp; Generate</div>
-        <div class="card-body">
-          <div class="volumes-grid" style="margin-bottom:16px">
-            <label class="vol-check checked" id="volCheck1">
-              <input type="checkbox" id="vol1" checked/> Vol I – Technical
-            </label>
-            <label class="vol-check checked" id="volCheck2">
-              <input type="checkbox" id="vol2" checked/> Vol II – Past Performance
-            </label>
-            <label class="vol-check checked" id="volCheck3">
-              <input type="checkbox" id="vol3" checked/> Vol III – Price Narrative
-            </label>
-            <label class="vol-check checked" id="volCheck4">
-              <input type="checkbox" id="vol4" checked/> Vol IV – Contract Docs
-            </label>
-          </div>
-          <p class="tip" style="margin-bottom:14px">📊 Pricing Excel is always manual. Vol III generates the narrative with placeholders for your numbers.</p>
-          <button class="btn btn-primary btn-block" id="runBtn" onclick="runGeneration()">
-            <span id="runBtnIcon">✨</span>
-            <span id="runBtnText">Generate Proposal Documents</span>
-          </button>
-          <p class="tip" style="margin-top:10px;text-align:center">Typically 60–120 seconds depending on document size.</p>
+    <!-- Step 6: Select Volumes + Generate -->
+    <div class="card step-locked" id="step6Card">
+      <div class="lock-msg"><span class="lock-icon">🔒</span><span class="lock-text">Complete Step 4 first</span></div>
+      <div class="card-header"><span class="icon">🚀</span> Step 6: Select Volumes &amp; Generate</div>
+      <div class="card-body">
+        <div class="volumes-grid" style="margin-bottom:16px">
+          <label class="vol-check checked" id="volCheck1"><input type="checkbox" id="vol1" checked/> Vol I – Technical</label>
+          <label class="vol-check checked" id="volCheck2"><input type="checkbox" id="vol2" checked/> Vol II – Past Performance</label>
+          <label class="vol-check checked" id="volCheck3"><input type="checkbox" id="vol3" checked/> Vol III – Price Narrative</label>
+          <label class="vol-check checked" id="volCheck4"><input type="checkbox" id="vol4" checked/> Vol IV – Contract Docs</label>
         </div>
-      </div>
-
-      <!-- DOWNLOADS -->
-      <div class="card" id="downloadCard" style="display:none">
-        <div class="card-header"><span class="icon">📥</span> Download Generated Documents</div>
-        <div class="card-body">
-          <div class="downloads" id="downloadList"></div>
-          <hr class="section-divider"/>
-          <p style="font-size:13px;color:var(--muted)">⚠️ <strong>Review required before submission.</strong> AI-generated content should be verified for accuracy, completeness, and compliance with the solicitation.</p>
+        <p class="tip" style="margin-bottom:14px">📊 Vol III generates the narrative only — fill in dollar amounts from your pricing Excel.</p>
+        <div id="generateGateLocked" style="text-align:center;padding:12px;background:var(--warn-bg);border:1px solid #fcd34d;border-radius:8px;font-size:13px;color:var(--warn)">
+          🔒 Sign in with your company Microsoft account in Step 1 to enable generation.
         </div>
+        <button class="btn btn-primary btn-block" id="runBtn" onclick="runGeneration()" style="display:none">
+          <span id="runBtnIcon">✨</span>
+          <span id="runBtnText">Generate Proposal Documents</span>
+        </button>
+        <p class="tip" style="margin-top:10px;text-align:center">Typically 60–120 seconds depending on document size.</p>
       </div>
-
-      <!-- LOG -->
-      <div class="log-box" id="logBox" style="display:none"></div>
-
     </div>
 
   </div>
+
+  <!-- ── Downloads + Log ──────────────────────────────────────────────────── -->
+  <div class="card" id="downloadCard" style="display:none;margin-bottom:24px">
+    <div class="card-header"><span class="icon">📥</span> Download Generated Documents</div>
+    <div class="card-body">
+      <div class="downloads" id="downloadList"></div>
+      <hr class="section-divider"/>
+      <p style="font-size:13px;color:var(--muted)">⚠️ <strong>Review required before submission.</strong> AI-generated content should be verified for accuracy, completeness, and compliance with the solicitation.</p>
+    </div>
+  </div>
+  <div class="log-box" id="logBox" style="display:none;margin-bottom:24px"></div>
+
 </div>
 <script>
+// ═══════════════════════════════════════════════════════════════════════════════
+// CLIENT CONFIGURATION — edit this block only when onboarding a new client
+// Everything below this block is generic tool logic and should not need changes.
+// ═══════════════════════════════════════════════════════════════════════════════
+const CLIENT_CONFIG = {
+
+  // ── Branding ──────────────────────────────────────────────────────────────
+  appTitle:       'SRFed Proposal Generator',
+  primaryColor:   '#005FD5',   // header, card headers, buttons
+  secondaryColor: '#485872',   // accents, h2 headings in docs
+  accentColor:    '#3EB6F4',   // light highlights
+  // Logo: base64 PNG string. To update, convert new logo to base64 and paste here.
+  // Quick converter: https://www.base64-image.de/
+  logoBase64:     null,        // set below — kept separate for readability
+
+  // ── Company Identity ──────────────────────────────────────────────────────
+  companyFullName:  'South River Federal Solutions LLC',
+  companyShortName: 'SRFed',
+  companyTagline:   'Navigate With Confidence',
+  businessType:     'SDVOSB, Small Business',
+  address:          '3168 Braverton Street, Suite 400, Edgewater, MD 21037',
+  phone:            '(410) 463-2644',
+  cage:             '8BMQ1',
+  uei:              'N5RZPM2JPJ21',
+  gsaMas:           '47QRAA25D006B',
+  clearances:       'Active SECRET Facility Clearance (FCL); key personnel hold SECRET or above',
+  cmmc:             'CMMC Level 1 self-attested; advancing toward Level 2 in partnership with USXCyber, implementing all NIST SP 800-171 controls.',
+  dcaa:             'DCAA-compliant accounting system (audited by DCAA Central Maryland Branch Office and DCMA Mid-Atlantic).',
+
+  // ── Primary Contact (for cover letters and doc footers) ───────────────────
+  ceoName:    'Matthew Tarjick',
+  ceoTitle:   'Chief Executive Officer',
+  ceoEmail:   'matthew.tarjick@srfed.com',
+  ceoPhone:   '(410) 463-2644',
+
+  // ── Key Personnel ─────────────────────────────────────────────────────────
+  // Add or remove entries as needed. Used in the Claude prompt.
+  keyPersonnel: [
+    { name: 'Matthew Tarjick', title: 'CEO',                       background: 'LTC US Army (ret.), 20+ years DoD/healthcare finance experience' },
+    { name: 'Paul Scace',      title: 'COO',                       background: 'Senior Financial Analyst, PMP, MBA Kellogg, West Point' },
+    { name: 'Garrett Alarcon', title: 'Director of Analytics',     background: 'TS/SCI, MS Operations Research/Data Science (AFIT), USAF' },
+    { name: 'Eric Olsen',      title: 'Change Management Lead',    background: 'PMP, 25+ years, West Point, USAF' },
+    { name: 'Mark Agustin',    title: 'Equipment Mgmt Specialist', background: '10+ years logistics/property management, Army National Guard' },
+    { name: 'Kyra Ennis',      title: 'Agreements Manager',        background: 'MHA candidate Seton Hall, Interim SECRET' },
+  ],
+
+  // ── Capabilities & Systems ────────────────────────────────────────────────
+  capabilities: [
+    'Program Management', 'Financial Management', 'Data Analytics',
+    'Earned Value Management', 'Administrative Support', 'Property Management',
+  ],
+  systemsExpertise: [
+    'Navy ERP', 'GFEBS', 'FMIS', 'MEPRS', 'DMHRSi',
+    'Power BI', 'Tableau', 'SharePoint', 'Microsoft Project',
+  ],
+
+  // ── Writing Style ─────────────────────────────────────────────────────────
+  writingStyle: [
+    'Confident, professional, mission-focused government proposal language',
+    'Emphasize: low-risk, high-value, data-driven, proactive, integrated, disciplined',
+    'Always connect capabilities back to specific Government needs from the PWS/SOW',
+    'Use complete sentences and flowing prose for narrative sections',
+    'Use bullet points for lists of capabilities, deliverables, or evidence',
+    'Every section should demonstrate understanding of the SPECIFIC requirement, not generic boilerplate',
+  ],
+  signaturePhrases: [
+    '"Navigate With Confidence"',
+    '"low-risk, high-value solution"',
+    '"data-driven decision-making"',
+  ],
+
+  // ── Past Performance ──────────────────────────────────────────────────────
+  pastPerformance: [
+    {
+      programName:    'BOMES Hub and Spoke',
+      contractNumber: 'HT001423F0097 / Subcontract MDC-05122023',
+      customer:       'DHA NCR HSPMO (sub to IT Data Consulting LLC)',
+      period:         '05/2023–05/2026',
+      value:          '$1,356,522 (SRFed) / $4,605,148 (Prime)',
+      contractType:   'Cost Plus Fixed Fee (CPFF)',
+      work:           'Program management, financial analysis, governance frameworks, dashboards, stakeholder coordination across Military Treatment Facilities',
+      pm:   { name: 'Jason Myers',         phone: '360-773-7241', email: 'jason.e.myers26.ctr@health.mil' },
+      co:   { name: 'LCDR Keith Laffman',  phone: '240-401-3361', email: 'Keith.m.laffman.mil@health.mil' },
+      cor:  { name: 'Daniel Dang',         phone: '202-999-9184', email: 'daniel.dang1.civ@health.mil' },
+    },
+    {
+      programName:    'Military Health Systems Financial Operations Support',
+      contractNumber: 'HT001119C0022',
+      customer:       'DHA NCR J-1/J-8 (sub to Advancia Technologies)',
+      period:         '09/2019–09/2024',
+      value:          '$1,310,675 (SRFed) / $16,963,062 (Prime)',
+      contractType:   'Firm Fixed Price (FFP)',
+      work:           'Budget formulation/execution, financial forecasting, ERP/GFEBS analysis, $1.7B portfolio oversight, Power BI dashboards, Status of Funds briefings',
+      pm:   { name: 'Matthew Tarjick',  phone: '410-463-2644', email: 'matthew.tarjick@srfed.com' },
+      co:   { name: 'Jessica Heinke',   phone: '703-681-1131', email: 'Jessica.K.Heinke.civ@health.mil' },
+      cor:  { name: 'Micah Meyers',     phone: '202-903-5876', email: 'micah.l.meyers.civ@health.mil' },
+    },
+    {
+      programName:    'GFEBS Global Technical Support',
+      contractNumber: 'HT001120C0017 / Subcontract AT202055S',
+      customer:       'DHA (sub to Advancia Technologies)',
+      period:         '08/2020–08/2024',
+      value:          '$493,445 (SRFed) / $76,609,581 (Prime)',
+      contractType:   'Firm Fixed Price (FFP)',
+      work:           'Budget data modeling, GFEBS optimization, automated dashboards, process improvement, MEPRS/DMHRSi support',
+      pm:   { name: 'John Lee',        phone: '703-681-7515', email: 'john.w.lee14.mil@health.mil' },
+      co:   { name: 'Jessica Heinke',  phone: '703-681-1131', email: 'Jessica.K.Heinke.civ@health.mil' },
+      cor:  { name: 'Tom Sydes',       phone: '703-915-5880', email: 'Thomas.a.sydes.ctr@health.mil' },
+    },
+  ],
+
+  // ── Microsoft / Azure Auth ────────────────────────────────────────────────
+  azureClientId:  '6a9f08a7-3299-4332-a3ea-5721c4dcb683',
+  azureTenantId:  '32cb4d1a-0419-4f41-9884-3516ab14274e',
+  authorizedDomain: 'srfed.com',   // only accounts @this domain can generate proposals
+  redirectUri:    'https://srfed.github.io/srfed-proposal-tool/',
+
+  // ── Anthropic API ─────────────────────────────────────────────────────────
+  // Leave as null to prompt user to enter their own key, or hardcode for single-tenant use.
+  anthropicApiKey: null,   // e.g. 'sk-ant-...'
+
+};
+
+// ── Logo (kept here for readability — do not move) ────────────────────────────
+CLIENT_CONFIG.logoBase64 = "iVBORw0KGgoAAAANSUhEUgAAADgAAAAgCAYAAABHA7voAAABCGlDQ1BJQ0MgUHJvZmlsZQAAeJxjYGA8wQAELAYMDLl5JUVB7k4KEZFRCuwPGBiBEAwSk4sLGHADoKpv1yBqL+viUYcLcKakFicD6Q9ArFIEtBxopAiQLZIOYWuA2EkQtg2IXV5SUAJkB4DYRSFBzkB2CpCtkY7ETkJiJxcUgdT3ANk2uTmlyQh3M/Ck5oUGA2kOIJZhKGYIYnBncAL5H6IkfxEDg8VXBgbmCQixpJkMDNtbGRgkbiHEVBYwMPC3MDBsO48QQ4RJQWJRIliIBYiZ0tIYGD4tZ2DgjWRgEL7AwMAVDQsIHG5TALvNnSEfCNMZchhSgSKeDHkMyQx6QJYRgwGDIYMZAKbWPz9HbOBQAAAEG0lEQVR42u2YW2xUVRSGv33OmVvbaTsdepnepu0USy8xUJRCBDWKELwAD8RbgsYHefBNjImXaIgPGn3SR02MJmqosQnEYFGI2AbFIlhDBLG0g/Q2GaaX6XTotD0zZ28fJq2+msw0Q+1K9ss5Z+fk3//aa/3rF0opxSoOjVUeawDXAP6HUCq9VjKMlfyZEKuUQSnTzJ0PJrgaWkQBUq0SgFKBJRVCwJvHJ/iwJ4oAUpZErgDKrAK0JGgCbIagbyjBqXMxPuqZYfpWCruhoWki6yBFthq9VGlwvQNzdP4UY2I2RXmxgSkFz2x1cq2/h7aWJjraW1BKIbJ0QbMC0JKga/D6V2GGIiaHd6+jozHv3/WUa8Exjh47TWX5Op4/uBcpJZqm5T5ASyp0TXDk+AQmDt7eX7j8ruvsMAAHdviXn33e9R2GofPk/p1IqdC0zDJpZCMtzw0lOD8Y58WNl/msK0mp10NroJypaAyA8bFR/giGiUxG8RS7+aX/Kn+NhPDX+JBKoWUwXTPGoFKKpCWxGzrvnIyxvV7DDF9GaTaKCpycHVxgRhYBUKLPsuMOJ7H4PJZUeD2FXLz0J4cO7iOZSmHoesbuZMYYFEJgN3RMM8mumik2b6iHDdsIT8/xZe8ILx03KLKFAIgli3j/cY2n7m+mzJOPZUm6TvQwPBrGX1ORWym6lACRySjfnD5H9/d9NK+vZXPbIRLxKGd6+9kUaObIo1F8tvSeUNLGpkARZ3rPs/fBdvLcxdjtNp5+4Qi77tvCs0/swV9dsXxwOdEHF80k4YlpIpNR7HY7sTmTT85EKPVVYc3H6L4wiaOwFEdhKd0XJrHmY3jLK/n0h5tMxxfQlKTaV0Z9rQ+X05m7VXRkPMLRrhO0duzksffCBKrBJhPEzXwsPX2eupS4bXOktDyGRuHb13zUFCsC/kocdiM3q6hSilTKoraqDH+1j/FQmLtaXPjz4lyfcvDKvhJuTCyggPoyFx+cTFHvlXgLDC7f1LgyU8jh9QZmysKmaxkrMhllUCmFAsZCET7+4msuiXv4cWCWumJJpdfN7KKFAoocOuNTtxieETywwcWMlc9bB6roaHChSLeanOyDQgiUVNRWlbNlYxPmbxext7TTN5Tg10EDnHr6wwWN+irJ7mYHsxTw0J0etgZcyyIh56XakuzqPHaa68EgcXcrfSEPkTkJQuDLg8YKQVy6aKvz8OojJcvy7rYR20sCuv/3IW4EB6hu7uDd7hg2IdE0g8bKAvZscrMt4FxWQLfVNJFm8h9tOZOwaHg5SHQqyak36mivc+DNN7LG3IrMg0vznpmSFOfpPLe9kIc73Nzb5KLz5xhXxhfRtexO92IljF+p0n7MYNgklrC4u8G1cj7QmrO9Zhuu2Yb/nxRdA5iF+BuOMNDYy/cF3AAAAABJRU5ErkJggg==";
+
 // ─── MICROSOFT AUTH (MSAL) ────────────────────────────────────────────────────
-// NOTE: Replace CLIENT_ID with your Azure App Registration client ID.
-// Register at https://portal.azure.com → Azure Active Directory → App registrations
-// Set Redirect URI to this page's URL, add API permissions: Sites.Read.All, Files.Read.All
 const MSAL_CONFIG = {
   auth: {
-    clientId: '6a9f08a7-3299-4332-a3ea-5721c4dcb683',
-    authority: 'https://login.microsoftonline.com/32cb4d1a-0419-4f41-9884-3516ab14274e',
-    redirectUri: 'https://srfed.github.io/srfed-proposal-tool/',
+    clientId:    CLIENT_CONFIG.azureClientId,
+    authority:   `https://login.microsoftonline.com/${CLIENT_CONFIG.azureTenantId}`,
+    redirectUri: CLIENT_CONFIG.redirectUri,
   },
   cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false }
 };
@@ -477,6 +734,24 @@ const SP_SCOPES = ['User.Read', 'Sites.Read.All', 'Files.Read.All'];
 
 let msalClient = null;
 let msAccount   = null;
+
+function applyClientConfig() {
+  // Title
+  document.title = CLIENT_CONFIG.appTitle;
+  // Logo
+  if (CLIENT_CONFIG.logoBase64) {
+    document.getElementById('appLogo').src = 'data:image/png;base64,' + CLIENT_CONFIG.logoBase64;
+  }
+  // App title text
+  const titleEl = document.querySelector('.logo-text');
+  if (titleEl) titleEl.textContent = CLIENT_CONFIG.appTitle;
+  // Colors
+  document.documentElement.style.setProperty('--blue',     CLIENT_CONFIG.primaryColor);
+  document.documentElement.style.setProperty('--mid-blue', CLIENT_CONFIG.secondaryColor);
+  document.documentElement.style.setProperty('--sky-blue', CLIENT_CONFIG.accentColor);
+  document.querySelector('.app-header').style.background = CLIENT_CONFIG.primaryColor;
+  document.querySelectorAll('.card-header').forEach(el => el.style.background = CLIENT_CONFIG.primaryColor);
+}
 
 function initMsal() {
   try {
@@ -521,6 +796,9 @@ function setMsAccount(account) {
 
 function renderMsState() {
   const signedIn = !!msAccount;
+  const email = msAccount ? (msAccount.username || '') : '';
+  const isSRFed = signedIn && email.toLowerCase().endsWith('@' + CLIENT_CONFIG.authorizedDomain);
+
   // Header signed-in pill
   document.getElementById('msSignedInArea').style.display = signedIn ? 'block' : 'none';
   // Step 1 card
@@ -529,75 +807,399 @@ function renderMsState() {
   // Step 2 SharePoint panel
   document.getElementById('spSignedOut').style.display = signedIn ? 'none' : 'block';
   document.getElementById('spSignedIn').style.display  = signedIn ? 'block' : 'none';
+  // Step 5 Generate button — only unlock for @srfed.com accounts
+  document.getElementById('generateGateLocked').style.display = isSRFed ? 'none' : 'block';
+  document.getElementById('runBtn').style.display             = isSRFed ? 'flex' : 'none';
+  // If signed in but wrong domain, update the lock message
+  if (signedIn && !isSRFed) {
+    document.getElementById('generateGateLocked').innerHTML =
+      `🔒 <strong>${email}</strong> is not an @${CLIENT_CONFIG.authorizedDomain} account. Please sign in with your company Microsoft account.`;
+  } else if (!signedIn) {
+    document.getElementById('generateGateLocked').innerHTML =
+      `🔒 Sign in with your <strong>@${CLIENT_CONFIG.authorizedDomain}</strong> account in Step 1 to enable generation.`;
+  }
 
   if (signedIn) {
-    const name  = msAccount.name || msAccount.username || 'User';
-    const email = msAccount.username || '';
+    const name     = msAccount.name || email || 'User';
     const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
-    document.getElementById('msAvatar').textContent       = initials;
-    document.getElementById('msName').textContent         = name;
-    document.getElementById('msEmail').textContent        = email;
+    document.getElementById('msAvatar').textContent         = initials;
+    document.getElementById('msName').textContent           = name;
+    document.getElementById('msEmail').textContent          = email;
     document.getElementById('step1AccountLine').textContent = name + '  ·  ' + email;
-    document.getElementById('spAccountLine').textContent  = email + '  ·  Microsoft 365';
+    document.getElementById('spAccountLine').textContent    = email + '  ·  Microsoft 365';
+    restoreApiKey();
+  }
+  updateStepLocks();
+}
+
+// Initialize on load
+window.addEventListener('load', () => { applyClientConfig(); initMsal(); });
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let rfpFiles     = [];   // RFP / PWS / solicitation docs
+let companyFiles = [];   // company / past performance docs
+let generatedDocs = {};
+let assumptions  = [];   // [{id, category, label, value, status:'pending'|'accepted'|'rejected', correction}]
+let analysisComplete = false;
+
+// ─── STEP LOCKING ─────────────────────────────────────────────────────────────
+function setStepLocked(cardId, locked) {
+  const card = document.getElementById(cardId);
+  if (!card) return;
+  if (locked) {
+    card.classList.add('step-locked');
+  } else {
+    card.classList.remove('step-locked');
+    // Remove pointer-events block from inputs inside
   }
 }
 
-// Initialize MSAL after everything loads
-window.addEventListener('load', initMsal);
+function updateStepLocks() {
+  const signedIn = !!msAccount && msAccount.username.toLowerCase().endsWith('@' + CLIENT_CONFIG.authorizedDomain);
+  const hasRFP   = rfpFiles.length > 0;
+  const analyzed = analysisComplete;
 
-// ─── STATE ───────────────────────────────────────────────────────────────────
-let uploadedFiles = [];
-let generatedDocs = {};
+  setStepLocked('step2Card', !signedIn);
+  setStepLocked('step3Card', !signedIn);
+  setStepLocked('step4Card', !hasRFP);
+  setStepLocked('step5Card', !analyzed);
+  setStepLocked('step6Card', !analyzed);
 
-// ─── FILE HANDLING ────────────────────────────────────────────────────────────
-const dropZone = document.getElementById('dropZone');
-const fileInput = document.getElementById('fileInput');
+  // Analyze button: enabled only when RFP files present
+  const analyzeBtn = document.getElementById('analyzeBtn');
+  if (analyzeBtn) {
+    analyzeBtn.disabled = !hasRFP;
+    analyzeBtn.style.opacity = hasRFP ? '1' : '0.45';
+  }
+}
 
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('drag-over');
-  addFiles([...e.dataTransfer.files]);
-});
-fileInput.addEventListener('change', () => addFiles([...fileInput.files]));
+// ─── FILE HANDLING (two drop zones) ──────────────────────────────────────────
+function initDropZone(zoneId, inputId, fileArray, listId) {
+  const zone  = document.getElementById(zoneId);
+  const input = document.getElementById(inputId);
+  if (!zone || !input) return;
 
-function addFiles(newFiles) {
-  newFiles.forEach(f => {
-    if (!uploadedFiles.find(x => x.name === f.name)) uploadedFiles.push(f);
+  zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    addFilesToArray([...e.dataTransfer.files], fileArray, listId);
   });
-  renderFileList();
+  input.addEventListener('change', () => {
+    addFilesToArray([...input.files], fileArray, listId);
+    input.value = '';
+  });
 }
 
-function removeFile(name) {
-  uploadedFiles = uploadedFiles.filter(f => f.name !== name);
-  renderFileList();
+function addFilesToArray(newFiles, arr, listId) {
+  newFiles.forEach(f => { if (!arr.find(x => x.name === f.name)) arr.push(f); });
+  renderFileListById(arr, listId);
+  updateStepLocks();
+  // Reset analysis if files change
+  if (analysisComplete) {
+    analysisComplete = false;
+    assumptions = [];
+    document.getElementById('analysisResults').style.display = 'none';
+    updateStepLocks();
+  }
 }
 
-function renderFileList() {
-  const el = document.getElementById('fileList');
-  if (uploadedFiles.length === 0) { el.innerHTML = ''; return; }
-  el.innerHTML = uploadedFiles.map(f => {
+function removeFileFromArray(name, arr, listId) {
+  const idx = arr.findIndex(f => f.name === name);
+  if (idx > -1) arr.splice(idx, 1);
+  renderFileListById(arr, listId);
+  updateStepLocks();
+}
+
+function renderFileListById(arr, listId) {
+  const el = document.getElementById(listId);
+  if (!el) return;
+  if (arr.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = arr.map(f => {
     const icon = f.name.endsWith('.pdf') ? '📄' : f.name.match(/\.docx?$/) ? '📝' : '📊';
     const size = f.size < 1048576 ? `${(f.size/1024).toFixed(0)} KB` : `${(f.size/1048576).toFixed(1)} MB`;
     return `<div class="file-item">
       <span class="file-icon">${icon}</span>
-      <span class="file-name">${f.name}</span>
+      <span class="file-name">${escHtml(f.name)}</span>
       <span class="file-size">${size}</span>
-      <span class="file-remove" onclick="removeFile('${f.name.replace(/'/g,"\\'")}')">✕</span>
+      <span class="file-remove" onclick="removeFileFromArray('${f.name.replace(/'/g,"\\'")}', ${arr === rfpFiles ? 'rfpFiles' : 'companyFiles'}, '${listId}')">✕</span>
     </div>`;
   }).join('');
 }
 
+// Init both drop zones on load
+window.addEventListener('DOMContentLoaded', () => {
+  initDropZone('dropZoneRFP',     'fileInputRFP',     rfpFiles,     'fileListRFP');
+  initDropZone('dropZoneCompany', 'fileInputCompany', companyFiles, 'fileListCompany');
+  updateStepLocks();
+});
+
 // Checkbox state
 ['1','2','3','4'].forEach(n => {
   const cb = document.getElementById(`vol${n}`);
-  cb.addEventListener('change', () => {
+  if (cb) cb.addEventListener('change', () => {
     document.getElementById(`volCheck${n}`).classList.toggle('checked', cb.checked);
   });
 });
 
-// ─── STATUS HELPERS ───────────────────────────────────────────────────────────
+// ─── ASSUMPTION CARD RENDERING ────────────────────────────────────────────────
+function renderAssumptions(panelId, items) {
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+  panel.innerHTML = items.map(a => `
+    <div class="assumption-card ${a.status}" id="acard-${a.id}">
+      <div class="assumption-top">
+        <div style="flex:1">
+          <div class="assumption-label">${escHtml(a.label)}</div>
+          <div class="assumption-value" id="aval-${a.id}">${escHtml(a.value)}</div>
+        </div>
+        <div class="assumption-actions">
+          <button class="assumption-btn accept ${a.status==='accepted'?'active':''}" title="Accept" onclick="setAssumption('${a.id}','accepted')">✓</button>
+          <button class="assumption-btn reject ${a.status==='rejected'?'active':''}" title="Reject / Edit" onclick="setAssumption('${a.id}','rejected')">✗</button>
+        </div>
+      </div>
+      <div class="assumption-edit" id="aedit-${a.id}">
+        <input type="text" id="ainput-${a.id}" value="${escHtml(a.correction || a.value)}"
+          placeholder="Enter corrected value (or leave blank to exclude)"
+          onchange="updateCorrection('${a.id}', this.value)"/>
+        <div class="edit-hint">Leave blank to exclude this item from the proposal entirely.</div>
+      </div>
+    </div>`).join('');
+}
+
+function setAssumption(id, status) {
+  const a = assumptions.find(x => x.id === id);
+  if (!a) return;
+  a.status = status;
+  const card  = document.getElementById(`acard-${id}`);
+  const edit  = document.getElementById(`aedit-${id}`);
+  const accBtn = card.querySelector('.assumption-btn.accept');
+  const rejBtn = card.querySelector('.assumption-btn.reject');
+  card.className  = `assumption-card ${status}`;
+  accBtn.classList.toggle('active', status === 'accepted');
+  rejBtn.classList.toggle('active', status === 'rejected');
+  edit.style.display = status === 'rejected' ? 'block' : 'none';
+  updateAssumptionSummary();
+}
+
+function updateCorrection(id, value) {
+  const a = assumptions.find(x => x.id === id);
+  if (a) a.correction = value;
+}
+
+function updateAssumptionSummary() {
+  const accepted = assumptions.filter(a => a.status === 'accepted').length;
+  const rejected = assumptions.filter(a => a.status === 'rejected').length;
+  const pending  = assumptions.filter(a => a.status === 'pending').length;
+
+  document.getElementById('assumptionsSummary').innerHTML = `
+    <span class="summary-pill accepted">✓ ${accepted} Accepted</span>
+    <span class="summary-pill rejected">✗ ${rejected} Rejected</span>
+    ${pending > 0 ? `<span class="summary-pill pending">⏳ ${pending} Pending</span>` : ''}`;
+
+  const gate     = document.getElementById('reviewGate');
+  const complete = document.getElementById('reviewComplete');
+  if (pending > 0) {
+    gate.style.display = 'block';
+    complete.style.display = 'none';
+    document.getElementById('pendingCount').textContent = `${pending} assumption${pending>1?'s':''} remain`;
+    analysisComplete = false;
+  } else {
+    gate.style.display = 'none';
+    complete.style.display = 'block';
+    analysisComplete = true;
+  }
+  updateStepLocks();
+}
+
+// ─── ANALYSIS FLOW ────────────────────────────────────────────────────────────
+async function runAnalysis() {
+  if (rfpFiles.length === 0) {
+    showStatus('warn', 'No RFP documents', 'Drop your RFP/PWS documents in Step 3 before analyzing.');
+    return;
+  }
+
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true;
+  document.getElementById('analyzeBtnIcon').innerHTML = '<div class="spinner"></div>';
+  document.getElementById('analyzeBtnText').textContent = 'Analyzing…';
+  showStatus('info', 'Analyzing documents', 'Claude is reading your RFP and company documents…', true);
+
+  const allSteps = [
+    { text: 'Reading RFP documents',            status: 'active' },
+    { text: 'Extracting solicitation metadata', status: 'pending' },
+    { text: 'Analyzing company documents',      status: 'pending' },
+    { text: 'Building assumption list',         status: 'pending' },
+  ];
+  setProgress(10, allSteps);
+
+  try {
+    const apiKey = getApiKey();
+    if (!apiKey) throw new Error('No API key found. Enter your Anthropic API key in Step 1 after signing in.');
+
+    const messageContent = [];
+
+    // Attach RFP files
+    for (const file of rfpFiles.slice(0, 10)) {
+      const b64  = await fileToBase64(file);
+      const mime = getMimeType(file);
+      if (mime === 'application/pdf') {
+        messageContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } });
+      } else {
+        messageContent.push({ type: 'text', text: `[RFP Document: ${file.name}]` });
+      }
+    }
+    allSteps[0].status = 'done'; allSteps[1].status = 'active';
+    setProgress(30, allSteps);
+
+    // Attach company files
+    for (const file of companyFiles.slice(0, 5)) {
+      const b64  = await fileToBase64(file);
+      const mime = getMimeType(file);
+      if (mime === 'application/pdf') {
+        messageContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } });
+      } else {
+        messageContent.push({ type: 'text', text: `[Company Document: ${file.name}]` });
+      }
+    }
+    allSteps[1].status = 'done'; allSteps[2].status = 'active';
+    setProgress(50, allSteps);
+
+    // Company profile context
+    messageContent.push({ type: 'text', text: `
+## COMPANY PROFILE FOR REFERENCE
+Company: ${CLIENT_CONFIG.companyFullName} (${CLIENT_CONFIG.companyShortName})
+Business Type: ${CLIENT_CONFIG.businessType}
+Capabilities: ${CLIENT_CONFIG.capabilities.join(', ')}
+Past Performance: ${CLIENT_CONFIG.pastPerformance.map(p => p.programName + ' (' + p.contractNumber + ')').join('; ')}
+` });
+
+    // Analysis prompt
+    messageContent.push({ type: 'text', text: `
+You are analyzing a government RFP/solicitation package and company documents on behalf of ${CLIENT_CONFIG.companyShortName}.
+
+Extract and return a JSON object with two arrays of assumption objects. Each assumption has:
+- "id": unique string (e.g. "rfp_1", "co_1")
+- "category": "rfp" or "company"
+- "label": short descriptive label (e.g. "Solicitation Number", "Due Date", "Number of FTEs")
+- "value": the extracted value as a string
+
+For the "rfp" array, extract ALL of the following if present:
+solicitation number, requirement/contract title, issuing agency, agency address, contracting officer name, CO email, CO phone, COR name, COR contact, submission due date, submission time/timezone, place of performance (physical location), contract type (FFP/CPFF/T&M/etc), estimated period of performance, number of option years, estimated total contract value, estimated annual value, estimated number of FTEs, page limits per volume, required certifications, required clearances, small business set-aside type, incumbent contractor (if mentioned), key evaluation factors, required proposal volumes, any teaming/subcontracting restrictions, NAICS code, and any other material assumptions about this requirement.
+
+For the "company" array, extract from the company documents provided (if any) plus the company profile above:
+For each past performance reference found: program name, contract number, customer, period, value, relevance to this RFP. Also extract: key personnel proposed, capabilities claimed, any certifications mentioned, any teaming partners mentioned.
+
+Return ONLY a JSON object, no markdown, no preamble:
+{
+  "rfp": [ { "id": "rfp_1", "category": "rfp", "label": "...", "value": "..." }, ... ],
+  "company": [ { "id": "co_1", "category": "company", "label": "...", "value": "..." }, ... ]
+}` });
+
+    allSteps[2].status = 'done'; allSteps[3].status = 'active';
+    setProgress(65, allSteps);
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: messageContent }]
+      })
+    });
+
+    if (!response.ok) throw new Error(`API error ${response.status}: ${await response.text()}`);
+    const data = await response.json();
+    const raw  = data.content.map(c => c.text || '').join('').trim().replace(/^```json|```$/g,'').trim();
+    const parsed = JSON.parse(raw);
+
+    allSteps[3].status = 'done';
+    setProgress(100, allSteps);
+
+    // Build assumptions array — all start as pending
+    assumptions = [
+      ...(parsed.rfp     || []).map(a => ({ ...a, status: 'pending', correction: '' })),
+      ...(parsed.company || []).map(a => ({ ...a, status: 'pending', correction: '' })),
+    ];
+
+    // Render
+    document.getElementById('analysisResults').style.display = 'block';
+    renderAssumptions('rfpAssumptions',     assumptions.filter(a => a.category === 'rfp'));
+    renderAssumptions('companyAssumptions', assumptions.filter(a => a.category === 'company'));
+    updateAssumptionSummary();
+
+    showStatus('success', 'Analysis complete', `Found ${assumptions.length} assumptions. Review each one below, then proceed to Step 5.`);
+
+  } catch(e) {
+    showStatus('error', 'Analysis failed', e.message);
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    document.getElementById('analyzeBtnIcon').textContent = '🔍';
+    document.getElementById('analyzeBtnText').textContent = 'Analyze Documents';
+  }
+}
+
+// ─── BUILD ACCEPTED ASSUMPTIONS CONTEXT (injected into generation prompt) ─────
+function buildAcceptedAssumptionsContext() {
+  const accepted = assumptions.filter(a => a.status === 'accepted');
+  const rejected = assumptions.filter(a => a.status === 'rejected');
+  const corrected = assumptions.filter(a => a.status === 'rejected' && a.correction && a.correction.trim());
+
+  let ctx = '\n## VERIFIED ASSUMPTIONS (confirmed accurate by proposal manager)\n';
+  accepted.forEach(a => { ctx += `- ${a.label}: ${a.value}\n`; });
+  corrected.forEach(a => { ctx += `- ${a.label}: ${a.correction} [corrected from: ${a.value}]\n`; });
+
+  if (rejected.length > corrected.length) {
+    const excluded = rejected.filter(a => !a.correction || !a.correction.trim());
+    ctx += '\n## EXCLUDED ASSUMPTIONS (rejected by proposal manager — do NOT use these)\n';
+    excluded.forEach(a => { ctx += `- ${a.label}: "${a.value}" — EXCLUDED, do not reference\n`; });
+  }
+  return ctx;
+}
+
+// ─── API KEY MANAGEMENT ───────────────────────────────────────────────────────
+function saveApiKey(value) {
+  const trimmed = value.trim();
+  if (trimmed) {
+    sessionStorage.setItem('srfed_api_key', trimmed);
+    document.getElementById('apiKeyStatus').textContent = '✅ Key saved for this session.';
+    document.getElementById('apiKeyStatus').style.color = 'var(--success)';
+  } else {
+    sessionStorage.removeItem('srfed_api_key');
+    document.getElementById('apiKeyStatus').textContent = 'Key cleared.';
+    document.getElementById('apiKeyStatus').style.color = 'var(--muted)';
+  }
+}
+
+function toggleApiKeyVisibility() {
+  const input = document.getElementById('apiKeyInput');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+function getApiKey() {
+  // Session key takes priority over CLIENT_CONFIG hardcode
+  return sessionStorage.getItem('srfed_api_key') || CLIENT_CONFIG.anthropicApiKey || null;
+}
+
+function restoreApiKey() {
+  const saved = sessionStorage.getItem('srfed_api_key');
+  if (saved) {
+    const input = document.getElementById('apiKeyInput');
+    if (input) {
+      input.value = saved;
+      document.getElementById('apiKeyStatus').textContent = '✅ Key restored from session.';
+      document.getElementById('apiKeyStatus').style.color = 'var(--success)';
+    }
+  }
+}
 function showStatus(type, title, msg, showProgress = false) {
   const icons = { info: 'ℹ️', success: '✅', warn: '⚠️', error: '❌' };
   const bar = document.getElementById('statusBar');
@@ -663,10 +1265,16 @@ function getMimeType(file) {
 
 // ─── MAIN GENERATION FLOW ─────────────────────────────────────────────────────
 async function runGeneration() {
+  // Hard auth gate — must be signed in with @srfed.com
+  if (!msAccount || !msAccount.username.toLowerCase().endsWith('@' + CLIENT_CONFIG.authorizedDomain)) {
+    showStatus('error', 'Access denied', `You must be signed in with an @${CLIENT_CONFIG.authorizedDomain} Microsoft account to generate proposals.`);
+    return;
+  }
+
   const notes   = document.getElementById('additionalNotes').value.trim();
   const genVols = ['1','2','3','4'].filter(n => document.getElementById(`vol${n}`).checked);
 
-  if (uploadedFiles.length === 0) {
+  if (rfpFiles.length === 0) {
     showStatus('warn', 'No documents uploaded', 'Please drop your RFP documents in Step 3 before generating.');
     return;
   }
@@ -680,31 +1288,28 @@ async function runGeneration() {
   document.getElementById('logBox').innerHTML = '';
   document.getElementById('logBox').style.display = 'block';
 
-  showStatus('info', 'Generating your proposal…', 'Please wait while Claude analyzes your RFP documents and generates the proposal volumes.', true);
+  showStatus('info', 'Generating your proposal…', 'Please wait while Claude writes the proposal volumes.', true);
 
   const allSteps = [
-    { text: 'Reading and analyzing RFP documents', status: 'active' },
-    { text: 'Extracting requirements and evaluation criteria', status: '' },
-    { text: 'Matching SRFed past performance', status: '' },
-    { text: 'Writing Technical Approach', status: '' },
-    { text: 'Writing Past Performance', status: '' },
-    { text: 'Writing Pricing Narrative', status: '' },
-    { text: 'Writing Contract Documentation', status: '' },
-    { text: 'Assembling Word documents', status: '' },
+    { text: 'Attaching documents',              status: 'active' },
+    { text: 'Extracting requirements',          status: '' },
+    { text: 'Writing proposal volumes',         status: '' },
+    { text: 'Assembling Word documents',        status: '' },
   ];
   setProgress(5, allSteps);
   log('Starting proposal generation...');
-  log(`Files: ${uploadedFiles.map(f => f.name).join(', ')}`);
+  log(`RFP files: ${rfpFiles.map(f => f.name).join(', ')}`);
+  if (companyFiles.length) log(`Company files: ${companyFiles.map(f => f.name).join(', ')}`);
 
   try {
-    // ── STEP 1: Send documents to Claude for analysis ──────────────────────
-    log('Sending documents to Claude API for analysis...');
+    // ── STEP 1: Attach documents ───────────────────────────────────────────
+    log('Attaching documents...');
     allSteps[0].status = 'active'; setProgress(10, allSteps);
 
     const messageContent = [];
 
-    // Attach all uploaded files
-    for (const file of uploadedFiles) {
+    // Attach RFP files
+    for (const file of rfpFiles.slice(0, 10)) {
       const b64 = await fileToBase64(file);
       const mime = getMimeType(file);
       if (mime === 'application/pdf') {
@@ -712,21 +1317,33 @@ async function runGeneration() {
           type: 'document',
           source: { type: 'base64', media_type: 'application/pdf', data: b64 }
         });
-        log(`  Attached: ${file.name} (PDF)`);
+        log(`  Attached RFP: ${file.name} (PDF)`);
       } else {
-        // For Word/Excel, attach as document
-        messageContent.push({
-          type: 'text',
-          text: `[Attached file: ${file.name} — Note: Word/Excel files should be parsed for requirements]`
-        });
-        log(`  Referenced: ${file.name}`, 'warn');
+        messageContent.push({ type: 'text', text: `[RFP Document: ${file.name}]` });
+        log(`  Referenced RFP: ${file.name}`, 'warn');
       }
     }
 
-    // Build the master prompt
+    // Attach company files
+    for (const file of companyFiles.slice(0, 5)) {
+      const b64 = await fileToBase64(file);
+      const mime = getMimeType(file);
+      if (mime === 'application/pdf') {
+        messageContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } });
+        log(`  Attached company doc: ${file.name} (PDF)`);
+      } else {
+        messageContent.push({ type: 'text', text: `[Company Document: ${file.name}]` });
+        log(`  Referenced company doc: ${file.name}`, 'warn');
+      }
+    }
+
+    allSteps[0].status = 'done'; allSteps[1].status = 'active'; setProgress(20, allSteps);
+
+    // Build the master prompt — inject verified assumptions from Step 4
+    const assumptionsContext = assumptions.length > 0 ? buildAcceptedAssumptionsContext() : '';
     messageContent.push({
       type: 'text',
-      text: `You are an expert government proposal writer for South River Federal Solutions LLC (SRFed), a Service-Disabled Veteran-Owned Small Business (SDVOSB) headquartered in Edgewater, MD.
+      text: `You are an expert government proposal writer for ${CLIENT_CONFIG.companyFullName} (${CLIENT_CONFIG.companyShortName}), a ${CLIENT_CONFIG.businessType} headquartered in ${CLIENT_CONFIG.address}.
 
 I have provided the RFP/solicitation documents above. Your job is to:
 1. Extract all proposal metadata directly from the documents (solicitation number, requirement title, agency name, agency address, POC name/email/phone, submission date)
@@ -735,62 +1352,50 @@ I have provided the RFP/solicitation documents above. Your job is to:
 ## VOLUMES REQUESTED
 ${genVols.map(v => `Volume ${v}`).join(', ')}
 
-## SRFED COMPANY PROFILE (use this to write about the company)
-- Full Legal Name: South River Federal Solutions LLC
-- Abbreviation: SRFed
-- Business Type: SDVOSB, Small Business
-- CEO: Matthew Tarjick (LTC, US Army ret.) — 20+ years DoD/healthcare finance experience
-- COO: Paul Scace — Financial analyst, ERP systems expert, PMP, MBA Kellogg
-- Director of Analytics: Garrett Alarcon — TS/SCI, MS Operations Research/Data Science, USAF
-- Change Management Lead: Eric Olsen — 25+ years, PMP, West Point, USAF
-- Key Capabilities: Program Management, Financial Management, Data Analytics, Earned Value Management, Administrative Support, Property Management
-- Systems Expertise: Navy ERP, GFEBS, FMIS, MEPRS, DMHRSi, Power BI, Tableau, SharePoint, Microsoft Project
-- Clearances: Active SECRET Facility Clearance (FCL); key personnel hold SECRET or above
-- GSA MAS Contract: 47QRAA25D006B
-- CAGE: 8BMQ1 | UEI: N5RZPM2JPJ21
+## COMPANY PROFILE (use this to write about the company)
+- Full Legal Name: ${CLIENT_CONFIG.companyFullName}
+- Abbreviation: ${CLIENT_CONFIG.companyShortName}
+- Business Type: ${CLIENT_CONFIG.businessType}
+- Address: ${CLIENT_CONFIG.address}
+- CAGE: ${CLIENT_CONFIG.cage} | UEI: ${CLIENT_CONFIG.uei}${CLIENT_CONFIG.gsaMas ? ` | GSA MAS: ${CLIENT_CONFIG.gsaMas}` : ''}
+- Clearances: ${CLIENT_CONFIG.clearances}
+
+## KEY PERSONNEL
+${CLIENT_CONFIG.keyPersonnel.map(p => `- ${p.name}, ${p.title} — ${p.background}`).join('\n')}
+
+## CORE CAPABILITIES
+${CLIENT_CONFIG.capabilities.join(', ')}
+
+## SYSTEMS EXPERTISE
+${CLIENT_CONFIG.systemsExpertise.join(', ')}
 
 ## PAST PERFORMANCE (use these as references when writing Vol II)
-1. **BOMES Hub and Spoke** (HT001423F0097, Subcontract MDC-05122023)
-   - Customer: DHA NCR HSPMO (sub to IT Data Consulting LLC)
-   - Period: 05/2023–05/2026 | SRFed Value: $1,356,522 | CPFF
-   - Work: Program management, financial analysis, governance frameworks, dashboards, stakeholder coordination across Military Treatment Facilities
-
-2. **Military Health Systems Financial Operations Support** (HT001119C0022)
-   - Customer: DHA NCR J-1/J-8 (sub to Advancia Technologies)
-   - Period: 09/2019–09/2024 | SRFed Value: $1,310,675 | FFP
-   - Work: Budget formulation/execution, financial forecasting, ERP/GFEBS analysis, $1.7B portfolio oversight, Power BI dashboards, Status of Funds briefings
-
-3. **GFEBS Global Technical Support** (HT001120C0017, Subcontract AT202055S)
-   - Customer: DHA (sub to Advancia Technologies)
-   - Period: 08/2020–08/2024 | SRFed Value: $493,445 | FFP
-   - Work: Budget data modeling, GFEBS optimization, automated dashboards, process improvement, MEPRS/DMHRSi support
+${CLIENT_CONFIG.pastPerformance.map((p, i) => `${i+1}. **${p.programName}** (${p.contractNumber})
+   - Customer: ${p.customer}
+   - Period: ${p.period} | Value: ${p.value} | ${p.contractType}
+   - Work: ${p.work}`).join('\n\n')}
 
 ## WRITING STYLE GUIDE
-- Confident, professional, mission-focused government proposal language
-- Use "SRFed" as the company abbreviation throughout
-- Emphasize: low-risk, high-value, data-driven, proactive, integrated, disciplined
-- Always connect SRFed capabilities back to specific Government needs from the PWS/SOW
-- Use complete sentences and flowing prose for narrative sections
-- Use bullet points for lists of capabilities, deliverables, or evidence
-- Every section should demonstrate understanding of the SPECIFIC requirement (not generic boilerplate)
-- Signature phrases: "Navigate With Confidence," "low-risk, high-value solution," "data-driven decision-making"
+${CLIENT_CONFIG.writingStyle.map(s => `- ${s}`).join('\n')}
+- Signature phrases: ${CLIENT_CONFIG.signaturePhrases.join(', ')}
 
 ## ADDITIONAL NOTES FROM PROPOSAL MANAGER
 ${notes || 'No additional notes provided.'}
+${assumptionsContext}
 
 ## YOUR TASK
 Analyze the RFP documents provided and generate proposal content. Return a JSON object (and ONLY a JSON object, no markdown fences, no preamble) with this structure:
 
 {
   "solicitation_number": "string",
-  "requirement_title": "string", 
+  "requirement_title": "string",
   "agency_name": "string",
   "agency_address": "string",
   "agency_poc": "string",
   "agency_poc_email": "string",
   "agency_poc_phone": "string",
   "submission_date": "string",
-  "output_prefix": "SRFed_Proposal",
+  "output_prefix": "${CLIENT_CONFIG.companyShortName}_Proposal",
   "volume1": {
     "understanding_of_requirement": "2-3 paragraph prose narrative showing deep understanding of THIS specific requirement",
     "technical_approach": "3-4 paragraph prose narrative of the technical approach tailored to THIS PWS/SOW task areas",
@@ -841,9 +1446,11 @@ Analyze the RFP documents provided and generate proposal content. Return a JSON 
     setProgress(20, allSteps);
 
     // Call Claude API
+    const apiKey = getApiKey();
+    if (!apiKey) throw new Error('No API key found. Enter your Anthropic API key in Step 1 after signing in.');
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 8000,
@@ -881,7 +1488,7 @@ Analyze the RFP documents provided and generate proposal content. Return a JSON 
     }
 
     // Claude extracts all metadata from the RFP docs; just set the output prefix
-    proposalData.output_prefix = 'SRFed_Proposal_' + (proposalData.solicitation_number || 'Draft').replace(/[^a-zA-Z0-9_]/g,'_');
+    proposalData.output_prefix = (CLIENT_CONFIG.companyShortName + '_Proposal_' + (proposalData.solicitation_number || 'Draft')).replace(/[^a-zA-Z0-9_]/g,'_');
 
     log('Proposal data extracted successfully.');
     log('Solicitation: ' + (proposalData.solicitation_number || 'not found in docs'));
@@ -917,7 +1524,7 @@ Analyze the RFP documents provided and generate proposal content. Return a JSON 
 // ─── REAL .DOCX GENERATION (docx.js) ─────────────────────────────────────────
 async function generateDocsClientSide(proposalData, volumes) {
   const docs = {};
-  const prefix = proposalData.output_prefix || 'SRFed_Proposal';
+  const prefix = proposalData.output_prefix || (CLIENT_CONFIG.companyShortName + '_Proposal');
 
   const volConfigs = {
     '1': { title: 'Technical',              label: 'Volume I \u2013 Technical',                 builder: buildDocxVol1 },
@@ -1091,15 +1698,14 @@ function coverTable(data, volTitle) {
     data.agency_poc_phone || '',
   ];
   const srfLines = [
-    'South River Federal Solutions LLC',
-    'Matthew Tarjick, Chief Executive Officer',
-    '(410) 463-2644',
-    'matthew.tarjick@srfed.com',
+    CLIENT_CONFIG.companyFullName,
+    CLIENT_CONFIG.ceoName + ', ' + CLIENT_CONFIG.ceoTitle,
+    CLIENT_CONFIG.ceoPhone,
+    CLIENT_CONFIG.ceoEmail,
     '',
-    '3168 Braverton Street, Suite 400',
-    'Edgewater, MD 21037',
+    CLIENT_CONFIG.address,
     '',
-    'SAM UEI: N5RZPM2JPJ21 | CAGE: 8BMQ1',
+    'SAM UEI: ' + CLIENT_CONFIG.uei + ' | CAGE: ' + CLIENT_CONFIG.cage,
   ];
 
   return new Table({
@@ -1126,7 +1732,7 @@ function coverPageChildren(data, volTitle) {
   const DISC1 = 'This submittal includes data that shall not be disclosed outside the Government and shall not be duplicated, used, or disclosed—in whole or in part—for any purpose other than to evaluate this submittal.';
   const DISC2 = 'This submittal contains trade secrets and commercial information that are either specifically exempted from disclosure by statute or are privileged or confidential within the meaning of the exemption set forth in 5 USC 552(b)(3) and (4) of the Freedom of Information Act.';
   return [
-    navyBanner('South River Federal Solutions  |  Navigate With Confidence'),
+    navyBanner(CLIENT_CONFIG.companyFullName + '  |  ' + CLIENT_CONFIG.companyTagline),
     ...spacer(2),
     new Paragraph({ children: [new TextRun({ text: 'Solicitation No: ' + (data.solicitation_number || '[SOLICITATION NUMBER]'), font: 'Calibri', size: 22, color: '595959' })] }),
     new Paragraph({ children: [new TextRun({ text: (data.requirement_title || '[REQUIREMENT TITLE]') + '  |  ' + volTitle, bold: true, font: 'Calibri', size: 32, color: NAVY })] }),
@@ -1149,7 +1755,7 @@ function makeHeader(data, volTitle) {
         tabStops: [{ type: TabStopType.RIGHT, position: CONT_W }],
         border: { bottom: { style: docx.BorderStyle.SINGLE, size: 6, color: NAVY, space: 4 } },
         children: [
-          new TextRun({ text: 'South River Federal Solutions LLC  |  ' + (data.solicitation_number || ''), font: 'Calibri', size: 18, color: NAVY }),
+          new TextRun({ text: CLIENT_CONFIG.companyFullName + '  |  ' + (data.solicitation_number || ''), font: 'Calibri', size: 18, color: NAVY }),
           new TextRun({ text: '\t' + volTitle, font: 'Calibri', size: 18, color: BLUEGRAY }),
         ]
       })
@@ -1198,8 +1804,8 @@ function ppRefTable(ref) {
     width: { size: CONT_W, type: WidthType.DXA },
     columnWidths: [lblW, valW],
     rows: [
-      row('Company Name', 'South River Federal Solutions LLC'),
-      row('CAGE Code', '8BMQ1'),
+      row('Company Name', CLIENT_CONFIG.companyFullName),
+      row('CAGE Code', CLIENT_CONFIG.cage),
       row('Program Name', ref.program_name),
       row('Contract Number', ref.contract_number),
       row('Program Manager', `${ref.pm_name || ''}  |  ${ref.pm_phone || ''}  |  ${ref.pm_email || ''}`),
@@ -1318,11 +1924,19 @@ async function buildDocxVol2(data) {
   const v = data.volume2 || {};
   const volTitle = 'Volume II \u2013 Past Performance';
 
-  const defaultRefs = [
-    { program_name: 'BOMES Hub and Spoke', contract_number: 'HT001423F0097', pm_name: 'Jason Myers', pm_phone: '360-773-7241', pm_email: 'jason.e.myers26.ctr@health.mil', co_name: 'LCDR Keith Laffman', co_phone: '240-401-3361', co_email: 'Keith.m.laffman.mil@health.mil', cor_name: 'Daniel Dang', cor_phone: '202-999-9184', cor_email: 'daniel.dang1.civ@health.mil', contract_type: 'Cost Plus Fixed Fee (CPFF)', period_of_performance: '05/12/2023 \u2013 05/14/2026', total_value: '$4,605,147.60 (Prime) / $1,356,522.33 (SRFed)', prime_or_sub: 'Subcontractor \u2013 IT Data Consulting LLC', overview: null, scope: null, relevance: null, similarity: null },
-    { program_name: 'Military Health Systems Financial Operations Support', contract_number: 'HT001119C0022', pm_name: 'Matthew Tarjick', pm_phone: '410-463-2644', pm_email: 'matthew.tarjick@srfed.com', co_name: 'Jessica Heinke', co_phone: '703-681-1131', co_email: 'Jessica.K.Heinke.civ@health.mil', cor_name: 'Micah Meyers', cor_phone: '202-903-5876', cor_email: 'micah.l.meyers.civ@health.mil', contract_type: 'Firm Fixed Price', period_of_performance: '09/11/2019 \u2013 09/10/2024', total_value: '$16,963,062.42 (Prime) / $1,310,674.64 (SRFed)', prime_or_sub: 'Subcontractor \u2013 Advancia Technologies, LLC', overview: null, scope: null, relevance: null, similarity: null },
-    { program_name: 'GFEBS Global Technical Support', contract_number: 'HT001120C0017', pm_name: 'John Lee', pm_phone: '703-681-7515', pm_email: 'john.w.lee14.mil@health.mil', co_name: 'Jessica Heinke', co_phone: '703-681-1131', co_email: 'Jessica.K.Heinke.civ@health.mil', cor_name: 'Tom Sydes', cor_phone: '703-915-5880', cor_email: 'Thomas.a.sydes.ctr@health.mil', contract_type: 'Firm Fixed Price', period_of_performance: '08/16/2020 \u2013 08/15/2024', total_value: '$76,609,581.34 (Prime) / $493,445.12 (SRFed)', prime_or_sub: 'Subcontractor \u2013 Advancia Technologies, LLC', overview: null, scope: null, relevance: null, similarity: null },
-  ];
+  // Build default refs from CLIENT_CONFIG so they update per client
+  const defaultRefs = CLIENT_CONFIG.pastPerformance.map(p => ({
+    program_name:         p.programName,
+    contract_number:      p.contractNumber,
+    pm_name:  p.pm.name,  pm_phone:  p.pm.phone,  pm_email:  p.pm.email,
+    co_name:  p.co.name,  co_phone:  p.co.phone,  co_email:  p.co.email,
+    cor_name: p.cor.name, cor_phone: p.cor.phone, cor_email: p.cor.email,
+    contract_type:        p.contractType,
+    period_of_performance: p.period,
+    total_value:          p.value,
+    prime_or_sub:         p.customer,
+    overview: null, scope: null, relevance: null, similarity: null,
+  }));
 
   const refs = (v.references && v.references.length > 0) ? v.references : defaultRefs;
 
@@ -1366,7 +1980,7 @@ async function buildDocxVol3(data) {
   const children = [
     ...coverPageChildren(data, volTitle),
     h1('1.  Introduction and Pricing Philosophy'),
-    para(`South River Federal Solutions LLC (SRFed) is committed to delivering a pricing strategy that balances cost competitiveness with operational reliability, workforce retention, and long-term value for ${agency}.`),
+    para(`${CLIENT_CONFIG.companyFullName} (${CLIENT_CONFIG.companyShortName}) is committed to delivering a pricing strategy that balances cost competitiveness with operational reliability, workforce retention, and long-term value for ${agency}.`),
     ...spacer(),
     para(v.pricing_philosophy || 'Our philosophy centers on a \u201cFair and Reasonable for Long-Term Collective Success\u201d approach. We aligned qualifications to mission-specific needs and structured rates using multiple references, including the Economic Research Institute, common salary benchmarks, previous SRFed contractual pricing data, and deep industry knowledge. Every dollar in our proposal reflects genuine investment in mission capability, not administrative overhead.'),
     ...spacer(),
@@ -1378,7 +1992,7 @@ async function buildDocxVol3(data) {
     lcatTable(v.labor_categories),
     ...spacer(),
     h1('3.  Pricing Reasonableness and Risk Mitigation'),
-    para(v.wrap_rate_narrative || 'Pricing was determined based on industry norms, geographic labor rates, SRFed\u2019s GSA MAS schedule (47QRAA25D006B), and SRFed\u2019s internal wrap rate calculations. Base rates were escalated using SRFed\u2019s standard fringe, overhead, G&A, and profit allocations.'),
+    para(v.wrap_rate_narrative || `Pricing was determined based on industry norms, geographic labor rates, ${CLIENT_CONFIG.companyShortName}'s GSA MAS schedule (${CLIENT_CONFIG.gsaMas || 'see GSA schedule'}), and internal wrap rate calculations. Base rates were escalated using standard fringe, overhead, G&A, and profit allocations.`),
     ...spacer(),
     bullet('Fringe Benefits \u2013 including PTO, 401(k) matching, medical/dental/vision coverage, and performance-based incentives'),
     bullet('Overhead and G&A \u2013 ensuring organizational infrastructure and compliance support'),
@@ -1389,7 +2003,8 @@ async function buildDocxVol3(data) {
     h1('4.  Compliance Statement'),
     para('All CLINs are fully priced in accordance with solicitation requirements. All contractor-furnished tools, licenses, and labor costs are incorporated. There will be no uncompensated overtime. SRFed does not intend to subcontract any work.'),
     ...spacer(),
-    para('SRFed maintains a DCAA-compliant accounting system (audited by DCAA Central Maryland Branch Office and DCMA Mid-Atlantic). SRFed\u2019s GSA MAS Contract Number is 47QRAA25D006B.'),
+    para(`${CLIENT_CONFIG.companyShortName} maintains a ${CLIENT_CONFIG.dcaa}${CLIENT_CONFIG.gsaMas ? ' GSA MAS Contract Number: ' + CLIENT_CONFIG.gsaMas + '.' : ''}`),
+
     ...spacer(),
     para(v.compliance_additional || '[Add any solicitation-specific compliance acknowledgements here.]', { color: '999999', italics: true }),
   ];
@@ -1417,17 +2032,17 @@ async function buildDocxVol4(data) {
   const children = [
     ...coverPageChildren(data, volTitle),
     h1('Cover Letter'),
-    para(`South River Federal Solutions LLC (SRFed) is pleased to submit this proposal in response to Solicitation ${solNum} for ${reqTitle} in support of ${agency}.`),
+    para(`${CLIENT_CONFIG.companyFullName} (${CLIENT_CONFIG.companyShortName}) is pleased to submit this proposal in response to Solicitation ${solNum} for ${reqTitle} in support of ${agency}.`),
     ...spacer(),
-    para('SRFed is a Service-Disabled Veteran-Owned Small Business (SDVOSB) with demonstrated experience supporting Department of Defense financial management, program management, and data analytics efforts. Our team brings the discipline, clearances, and mission-proven track record to deliver results from Day 1.'),
+    para(`${CLIENT_CONFIG.companyShortName} is a ${CLIENT_CONFIG.businessType} with demonstrated experience supporting Department of Defense efforts. Our team brings the discipline, clearances, and mission-proven track record to deliver results from Day 1.`),
     ...spacer(),
     para(v.cover_letter_additional || 'SRFed acknowledges all amendments to the solicitation and confirms that this proposal is valid for acceptance in accordance with solicitation requirements. We understand that award may be made based on initial proposals and have therefore submitted our best technical and cost solution.'),
     ...spacer(),
     para('Respectfully submitted,'),
     ...spacer(2),
-    para('Matthew Tarjick, CEO'),
-    para('South River Federal Solutions LLC'),
-    para('matthew.tarjick@srfed.com  |  (410) 463-2644'),
+    para(CLIENT_CONFIG.ceoName + ', ' + CLIENT_CONFIG.ceoTitle),
+    para(CLIENT_CONFIG.companyFullName),
+    para(CLIENT_CONFIG.ceoEmail + '  |  ' + CLIENT_CONFIG.ceoPhone),
     pageBreak(),
     h1('Solicitation Fill-Ins'),
     para('SRFed has completed all required solicitation representations, certifications, and fill-ins in accordance with Section K and all applicable clauses.'),
@@ -1449,18 +2064,18 @@ async function buildDocxVol4(data) {
     para(v.clearance_plan_additional || 'For personnel requiring clearance upgrades, SRFed submits clearance packages within 24\u201348 hours of onboarding through our Facility Security Officer (FSO), who coordinates directly with DCSA to ensure timely adjudication. SRFed\u2019s FSO has successfully processed multiple clearance upgrades with no interruption to contract performance.'),
     ...spacer(),
     h1('Facility Clearance Documentation'),
-    boldLabel('Company', 'South River Federal Solutions LLC'),
-    boldLabel('UEI', 'N5RZPM2JPJ21'),
-    boldLabel('CAGE', '8BMQ1'),
+    boldLabel('Company', CLIENT_CONFIG.companyFullName),
+    boldLabel('UEI', CLIENT_CONFIG.uei),
+    boldLabel('CAGE', CLIENT_CONFIG.cage),
     boldLabel('FCL Level', 'SECRET (Active)'),
-    boldLabel('Address', '3168 Braverton St, Suite 400, Edgewater, MD 21037'),
+    boldLabel('Address', CLIENT_CONFIG.address),
     boldLabel('Phone', '(410) 774-6645'),
     ...spacer(),
     h1('Government Furnished Property (GFP)'),
     para(v.gfp || 'SRFed will manage all Government Furnished Property in accordance with applicable DoD/DoN policies and established property accountability requirements, ensuring full lifecycle management from receipt through disposition. SRFed\u2019s Equipment Management Specialist, Mark Agustin, brings 10+ years of logistics and property management experience supporting Army National Guard operations.'),
     ...spacer(),
     h1('Cybersecurity Maturity Model Certification (CMMC)'),
-    para(v.cmmc || 'SRFed is currently CMMC Level 1 self-attested and is actively advancing toward CMMC Level 2 certification in partnership with USXCyber, implementing all NIST SP 800-171 security controls required for handling Controlled Unclassified Information (CUI). UEI: N5RZPM2JPJ21 | CAGE: 8BMQ1.'),
+    para(v.cmmc || `${CLIENT_CONFIG.companyShortName}: ${CLIENT_CONFIG.cmmc} UEI: ${CLIENT_CONFIG.uei} | CAGE: ${CLIENT_CONFIG.cage}.`),
   ];
 
   const doc = makeDoc([{
