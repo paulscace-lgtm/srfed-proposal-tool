@@ -285,23 +285,20 @@
 
   .tip { font-size: 12px; color: var(--muted); margin-top: 4px; }
 
-  /* ── STEP LOCK OVERLAY ── */
-  .step-locked { position: relative; }
-  .step-locked::after {
-    content: '';
-    position: absolute; inset: 0;
-    background: rgba(240,244,248,0.75);
-    border-radius: 10px;
-    pointer-events: all;
-    z-index: 10;
+  /* ── STEP LOCK ── */
+  /* Locked cards: dim the body content, grey out the header, block interaction */
+  /* No floating overlay text — the greyed header communicates the lock state */
+  .step-locked { pointer-events: none; }
+  .step-locked .card-header {
+    background: #9aafc7 !important;  /* muted blue instead of bright primary */
+    cursor: default;
   }
-  .step-locked .lock-msg {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-    z-index: 11; text-align: center; pointer-events: none;
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
+  .step-locked .card-body {
+    opacity: 0.35;
+    user-select: none;
   }
-  .step-locked .lock-msg .lock-icon { font-size: 28px; }
-  .step-locked .lock-msg .lock-text { font-size: 13px; color: var(--blue-gray); font-weight: 600; white-space: nowrap; }
+  /* Hide the floating lock-msg entirely — not needed with this approach */
+  .step-locked .lock-msg { display: none; }
 
   /* ── ASSUMPTION CARDS ── */
   .assumption-panel { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
@@ -1055,49 +1052,54 @@ async function runAnalysis() {
     allSteps[0].status = 'done'; allSteps[1].status = 'active';
     setProgress(30, allSteps);
 
-    // Attach company files
-    for (const file of companyFiles.slice(0, 5)) {
-      const b64  = await fileToBase64(file);
-      const mime = getMimeType(file);
-      if (mime === 'application/pdf') {
-        messageContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } });
-      } else {
-        messageContent.push({ type: 'text', text: `[Company Document: ${file.name}]` });
-      }
-    }
+    // No company file uploads for analysis — company assumptions built from CLIENT_CONFIG directly
     allSteps[1].status = 'done'; allSteps[2].status = 'active';
     setProgress(50, allSteps);
 
-    // Company profile context
+    // Build company-side assumptions directly from CLIENT_CONFIG (no API tokens needed)
+    // Only include items that genuinely need human verification
+    const companyAssumptionsFromConfig = [];
+
+    // Only flag past performance entries if relevance to THIS RFP is unclear
+    CLIENT_CONFIG.pastPerformance.forEach((p, i) => {
+      companyAssumptionsFromConfig.push({
+        id: `co_pp_${i}`, category: 'company',
+        label: `Include Past Performance: ${p.programName}`,
+        value: `${p.contractNumber} | ${p.customer} | ${p.period} | ${p.value}`
+      });
+    });
+
+    // Flag key personnel only if their availability/suitability might be uncertain
+    // (limit to top 3 most relevant)
+    CLIENT_CONFIG.keyPersonnel.slice(0, 3).forEach((p, i) => {
+      companyAssumptionsFromConfig.push({
+        id: `co_person_${i}`, category: 'company',
+        label: `Propose as Key Personnel: ${p.name}`,
+        value: `${p.title} — ${p.background}`
+      });
+    });
+
+    // Cap at 10 company assumptions
+    const cappedCompanyAssumptions = companyAssumptionsFromConfig.slice(0, 10);
+
+    // RFP prompt — only surface uncertain/ambiguous items, max 10
     messageContent.push({ type: 'text', text: `
-## COMPANY PROFILE FOR REFERENCE
-Company: ${CLIENT_CONFIG.companyFullName} (${CLIENT_CONFIG.companyShortName})
-Business Type: ${CLIENT_CONFIG.businessType}
-Capabilities: ${CLIENT_CONFIG.capabilities.join(', ')}
-Past Performance: ${CLIENT_CONFIG.pastPerformance.map(p => p.programName + ' (' + p.contractNumber + ')').join('; ')}
-` });
+You are analyzing a government RFP/solicitation package on behalf of ${CLIENT_CONFIG.companyShortName}.
 
-    // Analysis prompt
-    messageContent.push({ type: 'text', text: `
-You are analyzing a government RFP/solicitation package and company documents on behalf of ${CLIENT_CONFIG.companyShortName}.
+Surface ONLY assumptions that are uncertain, ambiguous, or require human verification. Do NOT list things clearly and unambiguously stated in the documents.
 
-Extract and return a JSON object with two arrays of assumption objects. Each assumption has:
-- "id": unique string (e.g. "rfp_1", "co_1")
-- "category": "rfp" or "company"
-- "label": short descriptive label (e.g. "Solicitation Number", "Due Date", "Number of FTEs")
-- "value": the extracted value as a string
+Return up to 10 items from the RFP that meet one or more of these criteria:
+- Value is ambiguous, implied, or could be interpreted multiple ways
+- Value is important but stated unclearly or buried in conflicting sections
+- Value is missing entirely but critical to proposal writing (flag as "Not specified — verify")
+- A number, date, or requirement that could easily be misread or overlooked
 
-For the "rfp" array, extract ALL of the following if present:
-solicitation number, requirement/contract title, issuing agency, agency address, contracting officer name, CO email, CO phone, COR name, COR contact, submission due date, submission time/timezone, place of performance (physical location), contract type (FFP/CPFF/T&M/etc), estimated period of performance, number of option years, estimated total contract value, estimated annual value, estimated number of FTEs, page limits per volume, required certifications, required clearances, small business set-aside type, incumbent contractor (if mentioned), key evaluation factors, required proposal volumes, any teaming/subcontracting restrictions, NAICS code, and any other material assumptions about this requirement.
+Focus on: submission deadline/timezone, place of performance, estimated FTEs, estimated contract value, page limits per volume, required clearance level, evaluation factor weights, set-aside type, incumbent contractor, teaming restrictions, and any unusual or atypical requirements.
 
-For the "company" array, extract from the company documents provided (if any) plus the company profile above:
-For each past performance reference found: program name, contract number, customer, period, value, relevance to this RFP. Also extract: key personnel proposed, capabilities claimed, any certifications mentioned, any teaming partners mentioned.
+Do NOT include anything that is completely obvious and unambiguous.
 
-Return ONLY a JSON object, no markdown, no preamble:
-{
-  "rfp": [ { "id": "rfp_1", "category": "rfp", "label": "...", "value": "..." }, ... ],
-  "company": [ { "id": "co_1", "category": "company", "label": "...", "value": "..." }, ... ]
-}` });
+Return ONLY a JSON object, no markdown, no preamble. Maximum 10 items:
+{ "rfp": [ { "id": "rfp_1", "category": "rfp", "label": "short label", "value": "value or Not specified" } ] }` });
 
     allSteps[2].status = 'done'; allSteps[3].status = 'active';
     setProgress(65, allSteps);
@@ -1143,21 +1145,18 @@ Return ONLY a JSON object, no markdown, no preamble:
     } catch(parseErr) {
       // Last resort: extract whatever arrays we can find
       console.warn('JSON parse failed, attempting extraction:', parseErr.message);
-      const rfpMatch     = raw.match(/"rfp"\s*:\s*(\[[\s\S]*?\])/);
-      const companyMatch = raw.match(/"company"\s*:\s*(\[[\s\S]*?\])/);
-      parsed = {
-        rfp:     rfpMatch     ? JSON.parse(rfpMatch[1])     : [],
-        company: companyMatch ? JSON.parse(companyMatch[1]) : [],
-      };
+      const rfpMatch = raw.match(/"rfp"\s*:\s*(\[[\s\S]*?\])/);
+      parsed = { rfp: rfpMatch ? JSON.parse(rfpMatch[1]) : [] };
     }
 
     allSteps[3].status = 'done';
     setProgress(100, allSteps);
 
-    // Build assumptions array — all start as pending
+    // Merge RFP assumptions (from Claude, uncertain items only, capped at 10)
+    // with company assumptions (built directly from CLIENT_CONFIG, capped at 10)
     assumptions = [
-      ...(parsed.rfp     || []).map(a => ({ ...a, status: 'pending', correction: '' })),
-      ...(parsed.company || []).map(a => ({ ...a, status: 'pending', correction: '' })),
+      ...(parsed.rfp || []).slice(0, 10).map(a => ({ ...a, status: 'pending', correction: '' })),
+      ...cappedCompanyAssumptions.map(a => ({ ...a, status: 'pending', correction: '' })),
     ];
 
     // Render
