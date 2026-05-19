@@ -6,7 +6,7 @@
 <title>SRFed Proposal Generator</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
-<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.10.0/lib/msal-browser.min.js"></script>
 <style>
   :root {
     /* ── SRFed Brand Palette ── */
@@ -753,20 +753,21 @@ function applyClientConfig() {
   document.querySelectorAll('.card-header').forEach(el => el.style.background = CLIENT_CONFIG.primaryColor);
 }
 
-function initMsal() {
+async function initMsal() {
   try {
     if (typeof msal === 'undefined') {
       setTimeout(initMsal, 300);
       return;
     }
     msalClient = new msal.PublicClientApplication(MSAL_CONFIG);
-    msalClient.handleRedirectPromise().then(resp => {
-      if (resp && resp.account) setMsAccount(resp.account);
-      else {
-        const accts = msalClient.getAllAccounts();
-        if (accts.length > 0) setMsAccount(accts[0]);
-      }
-    }).catch(e => console.warn('MSAL redirect error:', e));
+    await msalClient.initialize();
+    const resp = await msalClient.handleRedirectPromise();
+    if (resp && resp.account) {
+      setMsAccount(resp.account);
+    } else {
+      const accts = msalClient.getAllAccounts();
+      if (accts.length > 0) setMsAccount(accts[0]);
+    }
   } catch(e) {
     console.warn('MSAL init failed:', e.message);
   }
