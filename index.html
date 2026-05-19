@@ -524,7 +524,7 @@
     <div class="card-header"><span class="icon">🔍</span> Step 4: Analyze &amp; Confirm Assumptions</div>
     <div class="card-body">
       <div class="lock-msg"><span class="lock-icon">🔒</span><span class="lock-text">Drop RFP documents in Step 3 to unlock</span></div>
-      <p style="font-size:14px;color:var(--muted);margin-bottom:18px">Claude will analyze your documents and surface its assumptions. Review each one — accept, reject, or correct before writing begins. Rejected assumptions will be excluded from the proposal.</p>
+      <p style="font-size:14px;color:var(--muted);margin-bottom:18px">Documents will be analyzed and key assumptions surfaced for your review. Accept, reject, or correct each one before writing begins. Rejected assumptions will be excluded from the proposal.</p>
       <button class="btn btn-primary" id="analyzeBtn" onclick="runAnalysis()" disabled>
         <span id="analyzeBtnIcon">🔍</span>
         <span id="analyzeBtnText">Analyze Documents</span>
@@ -534,21 +534,22 @@
       <!-- Results panels — hidden until analysis runs -->
       <div id="analysisResults" style="display:none;margin-top:24px">
         <div class="assumptions-summary" id="assumptionsSummary"></div>
-        <div class="two-col" style="gap:20px;align-items:start">
 
-          <!-- Left: RFP assumptions -->
-          <div>
-            <div class="section-label">📄 RFP / Solicitation Assumptions</div>
-            <div class="assumption-panel" id="rfpAssumptions"></div>
+        <!-- RFP Assumptions -->
+        <div style="margin-bottom:20px">
+          <div class="section-label">📄 RFP / Solicitation Assumptions</div>
+          <div id="rfpAssumptionsEmpty" style="display:none;font-size:13px;color:var(--muted);padding:12px 0">
+            ✅ No ambiguous or uncertain items found in the RFP — all requirements appear clear and unambiguous.
           </div>
-
-          <!-- Right: Company / past performance assumptions -->
-          <div>
-            <div class="section-label">🏢 Company &amp; Past Performance Assumptions</div>
-            <div class="assumption-panel" id="companyAssumptions"></div>
-          </div>
-
+          <div class="assumption-panel" id="rfpAssumptions"></div>
         </div>
+
+        <!-- Company Assumptions -->
+        <div style="margin-bottom:20px">
+          <div class="section-label">🏢 Company &amp; Past Performance Assumptions</div>
+          <div class="assumption-panel" id="companyAssumptions"></div>
+        </div>
+
         <div id="reviewGate" style="margin-top:20px;padding:12px 16px;background:var(--warn-bg);border:1px solid #fcd34d;border-radius:8px;font-size:13px;color:var(--warn);display:none">
           ⚠️ Please review all assumptions above before continuing. <span id="pendingCount"></span> still pending.
         </div>
@@ -564,13 +565,13 @@
 
     <!-- Step 5: Additional Notes -->
     <div class="card step-locked" id="step5Card">
-      <div class="card-header"><span class="icon">📝</span> Step 5: Additional Notes for Claude</div>
+      <div class="card-header"><span class="icon">📝</span> Step 5: Additional Notes</div>
       <div class="card-body">
         <div class="lock-msg"><span class="lock-icon">🔒</span><span class="lock-text">Complete Step 4 to unlock</span></div>
         <div class="form-group" style="margin-bottom:0">
-          <textarea id="additionalNotes" style="min-height:140px" placeholder="Optional: teaming partners, specific focus areas, past performance to emphasize, unique qualifications, or any other context you want Claude to consider..."></textarea>
+          <textarea id="additionalNotes" style="min-height:140px" placeholder="Optional: teaming partners, specific focus areas, past performance to emphasize, unique qualifications, or any other context to consider when writing the proposal..."></textarea>
         </div>
-        <p class="tip" style="margin-top:8px">💡 All proposal metadata is extracted automatically from your documents. Use this box for anything else Claude should know.</p>
+        <p class="tip" style="margin-top:8px">💡 All proposal metadata is extracted automatically from your documents. Use this box for anything else that should inform the proposal.</p>
       </div>
     </div>
 
@@ -652,7 +653,6 @@ const CLIENT_CONFIG = {
   keyPersonnel: [
     { name: 'Matthew Tarjick', title: 'CEO',                       background: 'LTC US Army (ret.), 20+ years DoD/healthcare finance experience' },
     { name: 'Paul Scace',      title: 'COO',                       background: 'Senior Financial Analyst, PMP, MBA Kellogg, West Point' },
-    { name: 'Garrett Alarcon', title: 'Director of Analytics',     background: 'TS/SCI, MS Operations Research/Data Science (AFIT), USAF' },
     { name: 'Eric Olsen',      title: 'Change Management Lead',    background: 'PMP, 25+ years, West Point, USAF' },
     { name: 'Mark Agustin',    title: 'Equipment Mgmt Specialist', background: '10+ years logistics/property management, Army National Guard' },
     { name: 'Kyra Ennis',      title: 'Agreements Manager',        background: 'MHA candidate Seton Hall, Interim SECRET' },
@@ -1043,7 +1043,7 @@ async function runAnalysis() {
   btn.disabled = true;
   document.getElementById('analyzeBtnIcon').innerHTML = '<div class="spinner"></div>';
   document.getElementById('analyzeBtnText').textContent = 'Analyzing…';
-  showStatus('info', 'Analyzing documents', 'Claude is reading your RFP and company documents…', true);
+  showStatus('info', 'Analyzing documents', 'Reading your RFP and company documents…', true);
 
   const allSteps = [
     { text: 'Reading RFP documents',            status: 'active' },
@@ -1181,8 +1181,18 @@ Return ONLY a JSON object, no markdown, no preamble. Maximum 10 items:
 
     // Render
     document.getElementById('analysisResults').style.display = 'block';
-    renderAssumptions('rfpAssumptions',     assumptions.filter(a => a.category === 'rfp'));
-    renderAssumptions('companyAssumptions', assumptions.filter(a => a.category === 'company'));
+    const rfpItems     = assumptions.filter(a => a.category === 'rfp');
+    const companyItems = assumptions.filter(a => a.category === 'company');
+
+    // Show empty state if no RFP assumptions surfaced
+    const rfpEmpty = document.getElementById('rfpAssumptionsEmpty');
+    if (rfpItems.length === 0) {
+      rfpEmpty.style.display = 'block';
+    } else {
+      rfpEmpty.style.display = 'none';
+      renderAssumptions('rfpAssumptions', rfpItems);
+    }
+    renderAssumptions('companyAssumptions', companyItems);
     updateAssumptionSummary();
 
     showStatus('success', 'Analysis complete', `Found ${assumptions.length} assumptions. Review each one below, then proceed to Step 5.`);
@@ -1329,7 +1339,7 @@ async function runGeneration() {
 
   const allSteps = [
     { text: 'Preparing documents',     status: 'active' },
-    { text: 'Sending to Claude',       status: '' },
+    { text: 'Sending for processing',  status: '' },
     { text: 'Writing proposal',        status: '' },
     { text: 'Building Word documents', status: '' },
   ];
@@ -1395,7 +1405,7 @@ async function runGeneration() {
 
     allSteps[0].status = 'done'; allSteps[1].status = 'active';
     setProgress(15, allSteps);
-    showStatus('info', 'Sending to Claude...', 'Claude is reading your documents and writing the proposal. This takes 1–3 minutes — please keep this tab open.', true);
+    showStatus('info', 'Writing proposal...', 'Reading your documents and writing the proposal. This takes 1–3 minutes — please keep this tab open.', true);
     log('Calling Claude API...');
 
     // Standard API call — works from browser, supports large document payloads
