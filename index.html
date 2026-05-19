@@ -297,15 +297,17 @@
     pointer-events: all;
     z-index: 10;
   }
-  /* Lock message sits above the overlay, centered in the body */
+  /* Lock message — hidden by default, only shown when card is locked */
+  .lock-msg { display: none; }
   .step-locked .lock-msg {
+    display: flex;
     position: absolute;
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
     z-index: 12;
     text-align: center;
     pointer-events: none;
-    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    flex-direction: column; align-items: center; gap: 10px;
   }
   .step-locked .lock-msg .lock-icon { font-size: 32px; line-height: 1; }
   .step-locked .lock-msg .lock-text {
