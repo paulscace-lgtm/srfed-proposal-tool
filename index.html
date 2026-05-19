@@ -50,7 +50,7 @@
     gap: 16px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   }
-  .app-header .logo-img { height: 48px; width: auto; flex-shrink: 0; }
+  .app-header .logo-img { height: 44px; width: auto; max-width: 120px; flex-shrink: 0; image-rendering: -webkit-optimize-contrast; }
   .app-header .logo-text { font-size: 24px; font-weight: 700; letter-spacing: .3px; }
   .header-left { display: flex; align-items: center; gap: 14px; }
 
@@ -719,7 +719,7 @@ const CLIENT_CONFIG = {
 };
 
 // ── Logo (kept here for readability — do not move) ────────────────────────────
-CLIENT_CONFIG.logoBase64 = "iVBORw0KGgoAAAANSUhEUgAAADgAAAAgCAYAAABHA7voAAABCGlDQ1BJQ0MgUHJvZmlsZQAAeJxjYGA8wQAELAYMDLl5JUVB7k4KEZFRCuwPGBiBEAwSk4sLGHADoKpv1yBqL+viUYcLcKakFicD6Q9ArFIEtBxopAiQLZIOYWuA2EkQtg2IXV5SUAJkB4DYRSFBzkB2CpCtkY7ETkJiJxcUgdT3ANk2uTmlyQh3M/Ck5oUGA2kOIJZhKGYIYnBncAL5H6IkfxEDg8VXBgbmCQixpJkMDNtbGRgkbiHEVBYwMPC3MDBsO48QQ4RJQWJRIliIBYiZ0tIYGD4tZ2DgjWRgEL7AwMAVDQsIHG5TALvNnSEfCNMZchhSgSKeDHkMyQx6QJYRgwGDIYMZAKbWPz9HbOBQAAAEG0lEQVR42u2YW2xUVRSGv33OmVvbaTsdepnepu0USy8xUJRCBDWKELwAD8RbgsYHefBNjImXaIgPGn3SR02MJmqosQnEYFGI2AbFIlhDBLG0g/Q2GaaX6XTotD0zZ28fJq2+msw0Q+1K9ss5Z+fk3//aa/3rF0opxSoOjVUeawDXAP6HUCq9VjKMlfyZEKuUQSnTzJ0PJrgaWkQBUq0SgFKBJRVCwJvHJ/iwJ4oAUpZErgDKrAK0JGgCbIagbyjBqXMxPuqZYfpWCruhoWki6yBFthq9VGlwvQNzdP4UY2I2RXmxgSkFz2x1cq2/h7aWJjraW1BKIbJ0QbMC0JKga/D6V2GGIiaHd6+jozHv3/WUa8Exjh47TWX5Op4/uBcpJZqm5T5ASyp0TXDk+AQmDt7eX7j8ruvsMAAHdviXn33e9R2GofPk/p1IqdC0zDJpZCMtzw0lOD8Y58WNl/msK0mp10NroJypaAyA8bFR/giGiUxG8RS7+aX/Kn+NhPDX+JBKoWUwXTPGoFKKpCWxGzrvnIyxvV7DDF9GaTaKCpycHVxgRhYBUKLPsuMOJ7H4PJZUeD2FXLz0J4cO7iOZSmHoesbuZMYYFEJgN3RMM8mumik2b6iHDdsIT8/xZe8ILx03KLKFAIgli3j/cY2n7m+mzJOPZUm6TvQwPBrGX1ORWym6lACRySjfnD5H9/d9NK+vZXPbIRLxKGd6+9kUaObIo1F8tvSeUNLGpkARZ3rPs/fBdvLcxdjtNp5+4Qi77tvCs0/swV9dsXxwOdEHF80k4YlpIpNR7HY7sTmTT85EKPVVYc3H6L4wiaOwFEdhKd0XJrHmY3jLK/n0h5tMxxfQlKTaV0Z9rQ+X05m7VXRkPMLRrhO0duzksffCBKrBJhPEzXwsPX2eupS4bXOktDyGRuHb13zUFCsC/kocdiM3q6hSilTKoraqDH+1j/FQmLtaXPjz4lyfcvDKvhJuTCyggPoyFx+cTFHvlXgLDC7f1LgyU8jh9QZmysKmaxkrMhllUCmFAsZCET7+4msuiXv4cWCWumJJpdfN7KKFAoocOuNTtxieETywwcWMlc9bB6roaHChSLeanOyDQgiUVNRWlbNlYxPmbxext7TTN5Tg10EDnHr6wwWN+irJ7mYHsxTw0J0etgZcyyIh56XakuzqPHaa68EgcXcrfSEPkTkJQuDLg8YKQVy6aKvz8OojJcvy7rYR20sCuv/3IW4EB6hu7uDd7hg2IdE0g8bKAvZscrMt4FxWQLfVNJFm8h9tOZOwaHg5SHQqyak36mivc+DNN7LG3IrMg0vznpmSFOfpPLe9kIc73Nzb5KLz5xhXxhfRtexO92IljF+p0n7MYNgklrC4u8G1cj7QmrO9Zhuu2Yb/nxRdA5iF+BuOMNDYy/cF3AAAAABJRU5ErkJggg==";
+CLIENT_CONFIG.logoBase64 = "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";
 
 // ─── MICROSOFT AUTH (MSAL) ────────────────────────────────────────────────────
 const MSAL_CONFIG = {
@@ -768,6 +768,7 @@ async function initMsal() {
       const accts = msalClient.getAllAccounts();
       if (accts.length > 0) setMsAccount(accts[0]);
     }
+    updateStepLocks(); // ensure locks reflect auth state after init
   } catch(e) {
     console.warn('MSAL init failed:', e.message);
   }
@@ -1110,7 +1111,7 @@ Return ONLY a JSON object, no markdown, no preamble:
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5',
         max_tokens: 4000,
         messages: [{ role: 'user', content: messageContent }]
       })
@@ -1453,7 +1454,7 @@ Analyze the RFP documents provided and generate proposal content. Return a JSON 
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5',
         max_tokens: 8000,
         messages: [{ role: 'user', content: messageContent }]
       })
