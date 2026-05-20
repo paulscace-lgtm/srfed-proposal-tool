@@ -703,7 +703,7 @@
           <span id="runBtnIcon">✨</span>
           <span id="runBtnText">Generate Proposal Documents</span>
         </button>
-        <p class="tip" style="margin-top:10px;text-align:center">Typically 60–120 seconds depending on document size.</p>
+          <p class="tip" style="margin-top:10px;text-align:center">Typically 3–8 minutes depending on document size and number of volumes. Keep this tab open.</p>
       </div>
     </div>
 
@@ -1691,31 +1691,41 @@ async function runGeneration() {
 // ─── REAL .DOCX GENERATION (docx.js) ─────────────────────────────────────────
 async function generateDocsClientSide(proposalData, volumes) {
   const docs = {};
+  const errors = [];
   const prefix = proposalData.output_prefix || (CLIENT_CONFIG.companyShortName + '_Proposal');
 
+  // Verify docx library loaded
+  if (typeof docx === 'undefined') {
+    throw new Error('Word document library (docx.js) failed to load. Please check your internet connection and reload the page.');
+  }
+
   const volConfigs = {
-    '1': { title: 'Technical',              label: 'Volume I \u2013 Technical',                 builder: buildDocxVol1 },
-    '2': { title: 'Past_Performance',       label: 'Volume II \u2013 Past Performance',          builder: buildDocxVol2 },
-    '3': { title: 'Price_Narrative',        label: 'Volume III \u2013 Price Narrative',          builder: buildDocxVol3 },
-    '4': { title: 'Contract_Documentation', label: 'Volume IV \u2013 Contract Documentation',    builder: buildDocxVol4 },
+    '1': { title: 'Technical',              label: 'Volume I \u2013 Technical',              builder: buildDocxVol1 },
+    '2': { title: 'Past_Performance',       label: 'Volume II \u2013 Past Performance',       builder: buildDocxVol2 },
+    '3': { title: 'Price_Narrative',        label: 'Volume III \u2013 Price Narrative',       builder: buildDocxVol3 },
+    '4': { title: 'Contract_Documentation', label: 'Volume IV \u2013 Contract Documentation', builder: buildDocxVol4 },
   };
 
   for (const vol of volumes) {
     const cfg = volConfigs[vol];
-    log(`  Building ${cfg.label}...`);
     try {
+      showStatus('info', `Building ${cfg.label}...`, 'Assembling Word document.', true);
       const buffer = await cfg.builder(proposalData);
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
       const url = URL.createObjectURL(blob);
-      docs[vol] = {
-        label: cfg.label,
-        filename: `${prefix}_Volume_${vol}_${cfg.title}.docx`,
-        url,
-      };
-      log(`    \u2713 ${cfg.label} (real .docx)`);
+      docs[vol] = { label: cfg.label, filename: `${prefix}_Volume_${vol}_${cfg.title}.docx`, url };
     } catch(e) {
-      log(`    \u2717 ${cfg.label} failed: ${e.message}`, 'err');
+      console.error(`${cfg.label} build failed:`, e);
+      errors.push(`${cfg.label}: ${e.message}`);
     }
+  }
+
+  if (Object.keys(docs).length === 0) {
+    throw new Error('All Word documents failed to build.\n' + errors.join('\n'));
+  }
+
+  if (errors.length > 0) {
+    showStatus('warn', 'Some volumes failed to build', errors.join(' | '));
   }
 
   return docs;
@@ -2261,6 +2271,15 @@ function renderDownloads(docs) {
   card.style.display = 'block';
   list.innerHTML = '';
 
+  const entries = Object.entries(docs);
+  if (entries.length === 0) {
+    list.innerHTML = `<div style="padding:16px;color:var(--error);font-size:13px">
+      ⚠️ No documents were generated. This usually means the Word document library (docx.js) failed to load or a build error occurred.
+      <br><br>Try: hard refresh the page (Ctrl+Shift+R), then run again. If the problem persists, check the browser console (F12) for errors.
+    </div>`;
+    return;
+  }
+
   const volIcons = { '1': '📝', '2': '🏆', '3': '💰', '4': '📋' };
   const volDescs = {
     '1': 'Technical Approach, Management, Personnel & Resumes',
@@ -2269,7 +2288,7 @@ function renderDownloads(docs) {
     '4': 'Cover Letter, OCI, Clearances, CMMC',
   };
 
-  Object.entries(docs).forEach(([vol, doc]) => {
+  entries.forEach(([vol, doc]) => {
     const item = document.createElement('div');
     item.className = 'download-item';
     item.innerHTML = `
@@ -2283,6 +2302,8 @@ function renderDownloads(docs) {
       <a href="${doc.url}" download="${doc.filename}" class="btn btn-secondary btn-sm">⬇ Download</a>`;
     list.appendChild(item);
   });
+
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 </script>
 </body>
