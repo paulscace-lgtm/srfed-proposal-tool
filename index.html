@@ -946,38 +946,39 @@ function setMsAccount(account) {
 function renderMsState() {
   const signedIn = !!msAccount;
   const email = msAccount ? (msAccount.username || '') : '';
-  const isSRFed = signedIn && email.toLowerCase().endsWith('@' + CLIENT_CONFIG.authorizedDomain);
 
   // Header signed-in pill
-  document.getElementById('msSignedInArea').style.display = signedIn ? 'block' : 'none';
-  // Step 1 card
-  document.getElementById('step1SignedOut').style.display = signedIn ? 'none' : 'block';
-  document.getElementById('step1SignedIn').style.display  = signedIn ? 'block' : 'none';
-  // Step 2 SharePoint panel
-  document.getElementById('spSignedOut').style.display = signedIn ? 'none' : 'block';
-  document.getElementById('spSignedIn').style.display  = signedIn ? 'block' : 'none';
-  // Step 5 Generate button — only unlock for @srfed.com accounts
-  document.getElementById('generateGateLocked').style.display = isSRFed ? 'none' : 'block';
-  document.getElementById('runBtn').style.display             = isSRFed ? 'flex' : 'none';
-  // If signed in but wrong domain, update the lock message
-  if (signedIn && !isSRFed) {
-    document.getElementById('generateGateLocked').innerHTML =
-      `🔒 <strong>${email}</strong> is not an @${CLIENT_CONFIG.authorizedDomain} account. Please sign in with your company Microsoft account.`;
-  } else if (!signedIn) {
-    document.getElementById('generateGateLocked').innerHTML =
-      `🔒 Sign in with your <strong>@${CLIENT_CONFIG.authorizedDomain}</strong> account in Step 1 to enable generation.`;
-  }
+  const signedInArea = document.getElementById('msSignedInArea');
+  if (signedInArea) signedInArea.style.display = signedIn ? 'block' : 'none';
+
+  // Step 1 signed-in/out states
+  const s1out = document.getElementById('step1SignedOut');
+  const s1in  = document.getElementById('step1SignedIn');
+  if (s1out) s1out.style.display = signedIn ? 'none'  : 'block';
+  if (s1in)  s1in.style.display  = signedIn ? 'block' : 'none';
+
+  // SharePoint panel content (Step 3)
+  const spOut = document.getElementById('spSignedOut');
+  const spIn  = document.getElementById('spSignedIn');
+  if (spOut) spOut.style.display = signedIn ? 'none'  : 'block';
+  if (spIn)  spIn.style.display  = signedIn ? 'block' : 'none';
 
   if (signedIn) {
     const name     = msAccount.name || email || 'User';
-    const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
-    document.getElementById('msAvatar').textContent         = initials;
-    document.getElementById('msName').textContent           = name;
-    document.getElementById('msEmail').textContent          = email;
-    document.getElementById('step1AccountLine').textContent = name + '  ·  ' + email;
-    document.getElementById('spAccountLine').textContent    = email + '  ·  Microsoft 365';
+    const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    const avatarEl = document.getElementById('msAvatar');
+    const nameEl   = document.getElementById('msName');
+    const emailEl  = document.getElementById('msEmail');
+    const acctLine = document.getElementById('step1AccountLine');
+    const spAcct   = document.getElementById('spAccountLine');
+    if (avatarEl) avatarEl.textContent = initials;
+    if (nameEl)   nameEl.textContent   = name;
+    if (emailEl)  emailEl.textContent  = email;
+    if (acctLine) acctLine.textContent = name + '  ·  ' + email;
+    if (spAcct)   spAcct.textContent   = email + '  ·  Microsoft 365';
     restoreApiKey();
   }
+
   updateStepLocks();
 }
 
@@ -1174,22 +1175,6 @@ function updateStepLocks() {
     if (warn) {
       warn.style.display = preflight.ok ? 'none' : 'block';
       if (!preflight.ok) warn.innerHTML = '<b>Large bundle:</b> ' + preflight.message.replace(/\n/g,'<br>');
-    }
-  }
-}
-
-  const allFiles = [...rfpFiles, ...companyFiles];
-  // Show file size warning if any file is too large (preflightCheck defined later in file)
-  if (allFiles.length > 0 && typeof preflightCheck === 'function') {
-    const preflight = preflightCheck(rfpFiles, companyFiles);
-    const warn = document.getElementById('fileSizeWarning');
-    if (warn) {
-      if (!preflight.ok) {
-        warn.style.display = 'block';
-        warn.innerHTML = '⚠️ <strong>File too large:</strong> ' + preflight.message.replace(/\n/g,'<br>');
-      } else {
-        warn.style.display = 'none';
-      }
     }
   }
 }
