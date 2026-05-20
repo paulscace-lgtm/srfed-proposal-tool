@@ -321,6 +321,43 @@
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
   }
 
+  /* ── ASSUMPTION PANELS SIDE BY SIDE ── */
+  .assumptions-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  .assumption-scroll-panel {
+    max-height: 600px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  /* ── CLARIFYING QUESTIONS ── */
+  .clarify-section { margin-top: 14px; }
+  .clarify-section-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .5px; color: var(--muted);
+    margin-bottom: 8px; padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .clarify-card {
+    border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 14px;
+    background: white; margin-bottom: 10px;
+  }
+  .clarify-card.answered { border-color: #93c5fd; background: #eff6ff; }
+  .clarify-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 4px; }
+  .clarify-question { font-size: 13px; color: var(--text); margin-bottom: 8px; line-height: 1.4; }
+  .clarify-input {
+    width: 100%; padding: 7px 10px;
+    border: 1px solid var(--border); border-radius: 6px;
+    font-size: 13px; font-family: inherit; box-sizing: border-box;
+  }
+  .clarify-input:focus { outline: none; border-color: var(--mid-blue); }
+  .clarify-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
   /* ── ASSUMPTION CARDS ── */
   .assumption-panel { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
   .assumption-card {
@@ -535,19 +572,35 @@
       <div id="analysisResults" style="display:none;margin-top:24px">
         <div class="assumptions-summary" id="assumptionsSummary"></div>
 
-        <!-- RFP Assumptions -->
-        <div style="margin-bottom:20px">
-          <div class="section-label">📄 RFP / Solicitation Assumptions</div>
-          <div id="rfpAssumptionsEmpty" style="display:none;font-size:13px;color:var(--muted);padding:12px 0">
-            ✅ No ambiguous or uncertain items found in the RFP — all requirements appear clear and unambiguous.
-          </div>
-          <div class="assumption-panel" id="rfpAssumptions"></div>
-        </div>
+        <div class="assumptions-two-col">
 
-        <!-- Company Assumptions -->
-        <div style="margin-bottom:20px">
-          <div class="section-label">🏢 Company &amp; Past Performance Assumptions</div>
-          <div class="assumption-panel" id="companyAssumptions"></div>
+          <!-- LEFT: RFP / Solicitation -->
+          <div>
+            <div class="section-label">📄 RFP / Solicitation</div>
+            <div class="assumption-scroll-panel">
+              <div id="rfpAssumptionsEmpty" style="display:none;font-size:13px;color:var(--muted);padding:8px 0">
+                ✅ No ambiguous items found — all RFP requirements appear clear.
+              </div>
+              <div class="assumption-panel" id="rfpAssumptions"></div>
+              <div class="clarify-section" id="rfpClarifySection" style="display:none">
+                <div class="clarify-section-label">❓ Clarifying Questions</div>
+                <div id="rfpClarify"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: Company & Past Performance -->
+          <div>
+            <div class="section-label">🏢 Company &amp; Past Performance</div>
+            <div class="assumption-scroll-panel">
+              <div class="assumption-panel" id="companyAssumptions"></div>
+              <div class="clarify-section" id="companyClarifySection" style="display:none">
+                <div class="clarify-section-label">❓ Clarifying Questions</div>
+                <div id="companyClarify"></div>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         <div id="reviewGate" style="margin-top:20px;padding:12px 16px;background:var(--warn-bg);border:1px solid #fcd34d;border-radius:8px;font-size:13px;color:var(--warn);display:none">
@@ -858,7 +911,9 @@ window.addEventListener('load', () => { applyClientConfig(); initMsal(); });
 let rfpFiles     = [];   // RFP / PWS / solicitation docs
 let companyFiles = [];   // company / past performance docs
 let generatedDocs = {};
-let assumptions  = [];   // [{id, category, label, value, status:'pending'|'accepted'|'rejected', correction}]
+let assumptions        = [];   // [{id, category, label, value, status, correction}]
+let clarifyingQuestions = [];  // [{id, category, label, question, answer}]
+let cachedBriefing     = null; // structured briefing JSON from Call 1, reused for all volume calls
 let analysisComplete = false;
 
 // ─── STEP LOCKING ─────────────────────────────────────────────────────────────
@@ -1038,90 +1093,54 @@ async function runAnalysis() {
     showStatus('warn', 'No RFP documents', 'Drop your RFP/PWS documents in Step 3 before analyzing.');
     return;
   }
-
   const btn = document.getElementById('analyzeBtn');
   btn.disabled = true;
   document.getElementById('analyzeBtnIcon').innerHTML = '<div class="spinner"></div>';
-  document.getElementById('analyzeBtnText').textContent = 'Analyzing…';
-  showStatus('info', 'Analyzing documents', 'Reading your RFP and company documents…', true);
+  document.getElementById('analyzeBtnText').textContent = 'Analyzing...';
+  showStatus('info', 'Analyzing documents', 'Reading your RFP documents...', true);
 
   const allSteps = [
-    { text: 'Reading RFP documents',            status: 'active' },
-    { text: 'Extracting solicitation metadata', status: 'pending' },
-    { text: 'Analyzing company documents',      status: 'pending' },
-    { text: 'Building assumption list',         status: 'pending' },
+    { text: 'Reading RFP documents',     status: 'active' },
+    { text: 'Extracting assumptions',    status: '' },
+    { text: 'Building review panels',    status: '' },
   ];
   setProgress(10, allSteps);
 
   try {
     const apiKey = getApiKey();
-    if (!apiKey) throw new Error('No API key found. Enter your Anthropic API key in Step 1 after signing in.');
+    if (!apiKey) throw new Error('No API key found. Enter your Anthropic API key in Step 1.');
 
+    // Build message content with prompt caching on documents
     const messageContent = [];
-
-    // Attach RFP files
     for (const file of rfpFiles.slice(0, 10)) {
-      const b64  = await fileToBase64(file);
-      const mime = getMimeType(file);
-      if (mime === 'application/pdf') {
-        messageContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } });
+      const b64 = await fileToBase64(file);
+      if (getMimeType(file) === 'application/pdf') {
+        messageContent.push({
+          type: 'document',
+          source: { type: 'base64', media_type: 'application/pdf', data: b64 },
+          cache_control: { type: 'ephemeral' }  // prompt caching — reused for generation calls
+        });
       } else {
         messageContent.push({ type: 'text', text: `[RFP Document: ${file.name}]` });
       }
     }
+
     allSteps[0].status = 'done'; allSteps[1].status = 'active';
-    setProgress(30, allSteps);
+    setProgress(35, allSteps);
 
-    // No company file uploads for analysis — company assumptions built from CLIENT_CONFIG directly
+    messageContent.push({ type: 'text', text:
+      `You are analyzing a government RFP/solicitation for ${CLIENT_CONFIG.companyShortName}.\n\n` +
+      `Return a JSON object with:\n\n` +
+      `"confirmed": up to 10 items that ARE present in the documents but warrant human verification before proposal writing — things that are present but could be misread, have multiple interpretations, or are easy to overlook. Each: {"id":"rfp_1","category":"rfp","label":"short label","value":"extracted value"}\n\n` +
+      `"clarify": up to 5 items that are genuinely MISSING or UNCLEAR and the proposal team should try to answer if possible. These are open questions, not yes/no. Each: {"id":"q_1","category":"rfp","label":"short label","question":"specific question for the proposal manager"}\n\n` +
+      `Focus confirmed items on: submission deadline/timezone, place of performance, estimated FTEs, estimated contract value, page limits, required clearance, evaluation factors, set-aside type, incumbent, teaming restrictions.\n` +
+      `Focus clarify items on: information genuinely missing that would improve proposal quality.\n\n` +
+      `Do NOT include "Not specified" items in confirmed — those belong in clarify.\n` +
+      `Return ONLY JSON, no markdown:\n` +
+      `{"confirmed":[{"id":"rfp_1","category":"rfp","label":"","value":""}],"clarify":[{"id":"q_1","category":"rfp","label":"","question":""}]}`
+    });
+
     allSteps[1].status = 'done'; allSteps[2].status = 'active';
-    setProgress(50, allSteps);
-
-    // Build company-side assumptions directly from CLIENT_CONFIG (no API tokens needed)
-    // Only include items that genuinely need human verification
-    const companyAssumptionsFromConfig = [];
-
-    // Only flag past performance entries if relevance to THIS RFP is unclear
-    CLIENT_CONFIG.pastPerformance.forEach((p, i) => {
-      companyAssumptionsFromConfig.push({
-        id: `co_pp_${i}`, category: 'company',
-        label: `Include Past Performance: ${p.programName}`,
-        value: `${p.contractNumber} | ${p.customer} | ${p.period} | ${p.value}`
-      });
-    });
-
-    // Flag key personnel only if their availability/suitability might be uncertain
-    // (limit to top 3 most relevant)
-    CLIENT_CONFIG.keyPersonnel.slice(0, 3).forEach((p, i) => {
-      companyAssumptionsFromConfig.push({
-        id: `co_person_${i}`, category: 'company',
-        label: `Propose as Key Personnel: ${p.name}`,
-        value: `${p.title} — ${p.background}`
-      });
-    });
-
-    // Cap at 10 company assumptions
-    const cappedCompanyAssumptions = companyAssumptionsFromConfig.slice(0, 10);
-
-    // RFP prompt — only surface uncertain/ambiguous items, max 10
-    messageContent.push({ type: 'text', text: `
-You are analyzing a government RFP/solicitation package on behalf of ${CLIENT_CONFIG.companyShortName}.
-
-Surface ONLY assumptions that are uncertain, ambiguous, or require human verification. Do NOT list things clearly and unambiguously stated in the documents.
-
-Return up to 10 items from the RFP that meet one or more of these criteria:
-- Value is ambiguous, implied, or could be interpreted multiple ways
-- Value is important but stated unclearly or buried in conflicting sections
-- Value is missing entirely but critical to proposal writing (flag as "Not specified — verify")
-- A number, date, or requirement that could easily be misread or overlooked
-
-Focus on: submission deadline/timezone, place of performance, estimated FTEs, estimated contract value, page limits per volume, required clearance level, evaluation factor weights, set-aside type, incumbent contractor, teaming restrictions, and any unusual or atypical requirements.
-
-Do NOT include anything that is completely obvious and unambiguous.
-
-Return ONLY a JSON object, no markdown, no preamble. Maximum 10 items:
-{ "rfp": [ { "id": "rfp_1", "category": "rfp", "label": "short label", "value": "value or Not specified" } ] }` });
-
-    allSteps[2].status = 'done'; allSteps[3].status = 'active';
     setProgress(65, allSteps);
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1130,201 +1149,144 @@ Return ONLY a JSON object, no markdown, no preamble. Maximum 10 items:
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'prompt-caching-2024-07-31',
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 8000,
+        max_tokens: 2000,
         messages: [{ role: 'user', content: messageContent }]
       })
     });
 
     if (!response.ok) throw new Error(`API error ${response.status}: ${await response.text()}`);
     const data = await response.json();
-    let raw = data.content.map(c => c.text || '').join('').trim();
-
-    // Strip markdown fences if present
-    raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/,'').trim();
-
-    // If truncated (no closing brace), attempt to close the JSON gracefully
+    let raw = data.content.map(c => c.text || '').join('').trim()
+      .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
     if (!raw.endsWith('}')) {
-      // Find the last complete array entry and close out
-      const lastBrace = raw.lastIndexOf('}');
-      if (lastBrace > 0) {
-        raw = raw.substring(0, lastBrace + 1);
-        // Close any open arrays and the root object
-        const openBrackets = (raw.match(/\[/g) || []).length - (raw.match(/\]/g) || []).length;
-        for (let i = 0; i < openBrackets; i++) raw += ']';
-        raw += '}';
-      }
+      const lb = raw.lastIndexOf('}');
+      if (lb > 0) { raw = raw.substring(0, lb+1); const ob=(raw.match(/\[/g)||[]).length-(raw.match(/\]/g)||[]).length; for(let i=0;i<ob;i++) raw+=']'; raw+='}'; }
     }
 
-    let parsed;
-    try {
-      parsed = JSON.parse(raw);
-    } catch(parseErr) {
-      // Last resort: extract whatever arrays we can find
-      console.warn('JSON parse failed, attempting extraction:', parseErr.message);
-      const rfpMatch = raw.match(/"rfp"\s*:\s*(\[[\s\S]*?\])/);
-      parsed = { rfp: rfpMatch ? JSON.parse(rfpMatch[1]) : [] };
-    }
+    let parsed = { confirmed: [], clarify: [] };
+    try { parsed = JSON.parse(raw); }
+    catch(e) { console.warn('Analysis JSON parse failed:', e.message); }
 
-    allSteps[3].status = 'done';
+    // Build RFP assumptions (confirmed items = ✓/✗ cards)
+    const rfpConfirmed = (parsed.confirmed || []).filter(a => a.category === 'rfp').slice(0, 10)
+      .map(a => ({ ...a, type: 'confirm', status: 'pending', correction: '' }));
+
+    // Build RFP clarifying questions
+    const rfpClarify = (parsed.clarify || []).filter(a => a.category === 'rfp').slice(0, 5)
+      .map(a => ({ ...a, type: 'clarify', answer: '' }));
+
+    // Company assumptions from CLIENT_CONFIG (always ✓/✗ cards)
+    const companyConfirmed = [
+      ...CLIENT_CONFIG.pastPerformance.map((p, i) => ({
+        id: `co_pp_${i}`, category: 'company', type: 'confirm',
+        label: `Include Past Performance: ${p.programName}`,
+        value: `${p.contractNumber} | ${p.customer} | ${p.period} | ${p.value}`,
+        status: 'pending', correction: ''
+      })),
+      ...CLIENT_CONFIG.keyPersonnel.slice(0, 3).map((p, i) => ({
+        id: `co_person_${i}`, category: 'company', type: 'confirm',
+        label: `Propose as Key Personnel: ${p.name}`,
+        value: `${p.title} — ${p.background}`,
+        status: 'pending', correction: ''
+      })),
+    ].slice(0, 10);
+
+    // Store globally
+    assumptions = [...rfpConfirmed, ...companyConfirmed];
+    clarifyingQuestions = [...rfpClarify];
+
+    allSteps[2].status = 'done';
     setProgress(100, allSteps);
-
-    // Merge RFP assumptions (from Claude, uncertain items only, capped at 10)
-    // with company assumptions (built directly from CLIENT_CONFIG, capped at 10)
-    assumptions = [
-      ...(parsed.rfp || []).slice(0, 10).map(a => ({ ...a, status: 'pending', correction: '' })),
-      ...cappedCompanyAssumptions.map(a => ({ ...a, status: 'pending', correction: '' })),
-    ];
 
     // Render
     document.getElementById('analysisResults').style.display = 'block';
-    const rfpItems     = assumptions.filter(a => a.category === 'rfp');
-    const companyItems = assumptions.filter(a => a.category === 'company');
 
-    // Show empty state if no RFP assumptions surfaced
+    // RFP confirmed cards
     const rfpEmpty = document.getElementById('rfpAssumptionsEmpty');
-    if (rfpItems.length === 0) {
+    if (rfpConfirmed.length === 0) {
       rfpEmpty.style.display = 'block';
     } else {
       rfpEmpty.style.display = 'none';
-      renderAssumptions('rfpAssumptions', rfpItems);
+      renderAssumptions('rfpAssumptions', rfpConfirmed);
     }
-    renderAssumptions('companyAssumptions', companyItems);
-    updateAssumptionSummary();
 
-    showStatus('success', 'Analysis complete', `Found ${assumptions.length} assumptions. Review each one below, then proceed to Step 5.`);
+    // RFP clarifying questions
+    const rfpClarifySection = document.getElementById('rfpClarifySection');
+    if (rfpClarify.length > 0) {
+      rfpClarifySection.style.display = 'block';
+      renderClarifyingQuestions('rfpClarify', rfpClarify);
+    } else {
+      rfpClarifySection.style.display = 'none';
+    }
+
+    // Company confirmed cards
+    renderAssumptions('companyAssumptions', companyConfirmed);
+
+    updateAssumptionSummary();
+    showStatus('success', 'Analysis complete',
+      `Found ${rfpConfirmed.length} RFP items to review` +
+      (rfpClarify.length > 0 ? ` and ${rfpClarify.length} clarifying questions.` : '.') +
+      ' Review each below, then proceed to Step 5.');
 
   } catch(e) {
     showStatus('error', 'Analysis failed', e.message);
     console.error(e);
   } finally {
-    btn.disabled = false;
+    btn.disabled = rfpFiles.length === 0;
     document.getElementById('analyzeBtnIcon').textContent = '🔍';
     document.getElementById('analyzeBtnText').textContent = 'Analyze Documents';
   }
 }
 
-// ─── BUILD ACCEPTED ASSUMPTIONS CONTEXT (injected into generation prompt) ─────
-function buildAcceptedAssumptionsContext() {
-  const accepted = assumptions.filter(a => a.status === 'accepted');
-  const rejected = assumptions.filter(a => a.status === 'rejected');
-  const corrected = assumptions.filter(a => a.status === 'rejected' && a.correction && a.correction.trim());
+// ─── CLARIFYING QUESTION RENDERING ────────────────────────────────────────────
+function renderClarifyingQuestions(panelId, items) {
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+  panel.innerHTML = items.map(q => `
+    <div class="clarify-card ${q.answer ? 'answered' : ''}" id="qcard-${q.id}">
+      <div class="clarify-label">${escHtml(q.label)}</div>
+      <div class="clarify-question">${escHtml(q.question)}</div>
+      <input type="text" class="clarify-input" id="qinput-${q.id}"
+        value="${escHtml(q.answer || '')}"
+        placeholder="Optional — leave blank if unknown"
+        oninput="updateClarifyAnswer('${q.id}', this.value)"/>
+      <div class="clarify-hint">This information will be included in the proposal if provided. Leave blank to proceed without it.</div>
+    </div>`).join('');
+}
 
-  let ctx = '\n## VERIFIED ASSUMPTIONS (confirmed accurate by proposal manager)\n';
-  accepted.forEach(a => { ctx += `- ${a.label}: ${a.value}\n`; });
-  corrected.forEach(a => { ctx += `- ${a.label}: ${a.correction} [corrected from: ${a.value}]\n`; });
+function updateClarifyAnswer(id, value) {
+  const q = clarifyingQuestions.find(x => x.id === id);
+  if (q) {
+    q.answer = value;
+    const card = document.getElementById(`qcard-${id}`);
+    if (card) card.classList.toggle('answered', !!value.trim());
+  }
+}
 
-  if (rejected.length > corrected.length) {
-    const excluded = rejected.filter(a => !a.correction || !a.correction.trim());
-    ctx += '\n## EXCLUDED ASSUMPTIONS (rejected by proposal manager — do NOT use these)\n';
-    excluded.forEach(a => { ctx += `- ${a.label}: "${a.value}" — EXCLUDED, do not reference\n`; });
+function buildClarifyingContext() {
+  const answered = clarifyingQuestions.filter(q => q.answer && q.answer.trim());
+  const unanswered = clarifyingQuestions.filter(q => !q.answer || !q.answer.trim());
+  if (clarifyingQuestions.length === 0) return '';
+  let ctx = '\n## CLARIFYING INFORMATION PROVIDED BY PROPOSAL MANAGER\n';
+  if (answered.length > 0) {
+    answered.forEach(q => { ctx += `- ${q.label}: ${q.answer}\n`; });
+  }
+  if (unanswered.length > 0) {
+    ctx += '\n## ITEMS NOT AVAILABLE (write around these gracefully)\n';
+    unanswered.forEach(q => { ctx += `- ${q.label}: Not available — do not speculate, write around it\n`; });
   }
   return ctx;
 }
 
-// ─── API KEY MANAGEMENT ───────────────────────────────────────────────────────
-function saveApiKey(value) {
-  const trimmed = value.trim();
-  if (trimmed) {
-    sessionStorage.setItem('srfed_api_key', trimmed);
-    document.getElementById('apiKeyStatus').textContent = '✅ Key saved for this session.';
-    document.getElementById('apiKeyStatus').style.color = 'var(--success)';
-  } else {
-    sessionStorage.removeItem('srfed_api_key');
-    document.getElementById('apiKeyStatus').textContent = 'Key cleared.';
-    document.getElementById('apiKeyStatus').style.color = 'var(--muted)';
-  }
-}
-
-function toggleApiKeyVisibility() {
-  const input = document.getElementById('apiKeyInput');
-  input.type = input.type === 'password' ? 'text' : 'password';
-}
-
-function getApiKey() {
-  // Session key takes priority over CLIENT_CONFIG hardcode
-  return sessionStorage.getItem('srfed_api_key') || CLIENT_CONFIG.anthropicApiKey || null;
-}
-
-function restoreApiKey() {
-  const saved = sessionStorage.getItem('srfed_api_key');
-  if (saved) {
-    const input = document.getElementById('apiKeyInput');
-    if (input) {
-      input.value = saved;
-      document.getElementById('apiKeyStatus').textContent = '✅ Key restored from session.';
-      document.getElementById('apiKeyStatus').style.color = 'var(--success)';
-    }
-  }
-}
-function showStatus(type, title, msg, showProgress = false) {
-  const icons = { info: 'ℹ️', success: '✅', warn: '⚠️', error: '❌' };
-  const bar = document.getElementById('statusBar');
-  bar.className = `status-bar ${type}`;
-  bar.style.display = 'flex';
-  document.getElementById('statusIcon').textContent = icons[type];
-  document.getElementById('statusTitle').textContent = title;
-  document.getElementById('statusMsg').textContent = msg;
-  const pw = document.getElementById('progressWrap');
-  pw.style.display = showProgress ? 'block' : 'none';
-}
-
-function setProgress(pct, steps) {
-  document.getElementById('progressFill').style.width = pct + '%';
-  if (steps) {
-    document.getElementById('progressSteps').innerHTML = steps.map(s =>
-      `<div class="progress-step ${s.status}"><span class="step-icon">${s.status === 'done' ? '✅' : s.status === 'active' ? '⏳' : '○'}</span>${s.text}</div>`
-    ).join('');
-  }
-}
-
-function log(msg, type = '') {
-  // Internal logging only — log box is hidden from users
-  console.log(`[${type || 'info'}] ${msg}`);
-}
-
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function setRunning(running) {
-  const btn = document.getElementById('runBtn');
-  const icon = document.getElementById('runBtnIcon');
-  const text = document.getElementById('runBtnText');
-  btn.disabled = running;
-  if (running) {
-    icon.outerHTML = '<span id="runBtnIcon" class="spinner"></span>';
-    text.textContent = 'Generating…';
-  } else {
-    document.getElementById('runBtnIcon').outerHTML = '<span id="runBtnIcon">✨</span>';
-    text.textContent = 'Generate Proposal Documents';
-  }
-}
-
-// ─── READ FILE AS BASE64 ──────────────────────────────────────────────────────
-function fileToBase64(file) {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(r.result.split(',')[1]);
-    r.onerror = rej;
-    r.readAsDataURL(file);
-  });
-}
-
-function getMimeType(file) {
-  if (file.name.endsWith('.pdf')) return 'application/pdf';
-  if (file.name.match(/\.docx?$/)) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-  if (file.name.match(/\.xlsx?$/)) return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  return 'application/octet-stream';
-}
-
-// ─── MAIN GENERATION FLOW (Batch API) ────────────────────────────────────────
+// ─── MAIN GENERATION FLOW (multi-call with prompt caching) ───────────────────
 async function runGeneration() {
   if (!msAccount || !msAccount.username.toLowerCase().endsWith('@' + CLIENT_CONFIG.authorizedDomain)) {
-    showStatus('error', 'Access denied', `You must be signed in with an @${CLIENT_CONFIG.authorizedDomain} Microsoft account to generate proposals.`);
+    showStatus('error', 'Access denied', `You must be signed in with an @${CLIENT_CONFIG.authorizedDomain} Microsoft account.`);
     return;
   }
   const notes   = document.getElementById('additionalNotes').value.trim();
@@ -1338,139 +1300,181 @@ async function runGeneration() {
   document.getElementById('downloadCard').style.display = 'none';
 
   const allSteps = [
-    { text: 'Preparing documents',     status: 'active' },
-    { text: 'Sending for processing',  status: '' },
-    { text: 'Writing proposal',        status: '' },
-    { text: 'Building Word documents', status: '' },
+    { text: 'Reading all documents',         status: 'active' },
+    { text: 'Building proposal briefing',    status: '' },
+    { text: 'Writing proposal volumes',      status: '' },
+    { text: 'Building Word documents',       status: '' },
   ];
-  showStatus('info', 'Preparing proposal generation...', 'Attaching documents and building prompt.', true);
+  showStatus('info', 'Starting generation...', 'Preparing documents. This takes 2–5 minutes — please keep this tab open.', true);
   setProgress(5, allSteps);
-  log('Starting proposal generation...');
 
   try {
-    // Build message content
-    const messageContent = [];
-
-    for (const file of rfpFiles.slice(0, 10)) {
-      const b64 = await fileToBase64(file);
-      if (getMimeType(file) === 'application/pdf') {
-        messageContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } });
-        log(`  Attached RFP: ${file.name}`);
-      } else {
-        messageContent.push({ type: 'text', text: `[RFP Document: ${file.name}]` });
-      }
-    }
-    for (const file of companyFiles.slice(0, 5)) {
-      const b64 = await fileToBase64(file);
-      if (getMimeType(file) === 'application/pdf') {
-        messageContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } });
-        log(`  Attached company doc: ${file.name}`);
-      } else {
-        messageContent.push({ type: 'text', text: `[Company Document: ${file.name}]` });
-      }
-    }
-
-    const assumptionsContext = assumptions.length > 0 ? buildAcceptedAssumptionsContext() : '';
     const ppBlock = CLIENT_CONFIG.pastPerformance.map((p,i) =>
-      `${i+1}. **${p.programName}** (${p.contractNumber})\n   - Customer: ${p.customer}\n   - ${p.period} | ${p.value} | ${p.contractType}\n   - ${p.work}`
-    ).join('\n\n');
-    const personnelBlock = CLIENT_CONFIG.keyPersonnel.map(p => `- ${p.name}, ${p.title} -- ${p.background}`).join('\n');
+      `${i+1}. ${p.programName} (${p.contractNumber}) | ${p.customer} | ${p.period} | ${p.value} | ${p.contractType} | ${p.work}`
+    ).join('\n');
+    const personnelBlock = CLIENT_CONFIG.keyPersonnel.map(p => `- ${p.name}, ${p.title}: ${p.background}`).join('\n');
+    const assumptionsCtx = assumptions.length > 0 ? buildAcceptedAssumptionsContext() : '';
+    const clarifyCtx = buildClarifyingContext();
 
-    messageContent.push({ type: 'text', text:
+    // ── CALL 1: Send all documents + extract briefing ─────────────────────────
+    // Documents are cached here — subsequent calls reuse the cache for free
+    showStatus('info', 'Reading documents...', 'Sending all documents for analysis. This is the longest step.', true);
+    setProgress(10, allSteps);
+
+    const docContent = [];
+    for (const file of [...rfpFiles.slice(0,10), ...companyFiles.slice(0,5)]) {
+      const b64 = await fileToBase64(file);
+      if (getMimeType(file) === 'application/pdf') {
+        docContent.push({
+          type: 'document',
+          source: { type: 'base64', media_type: 'application/pdf', data: b64 },
+          cache_control: { type: 'ephemeral' }
+        });
+      } else {
+        docContent.push({ type: 'text', text: `[Document: ${file.name}]`, cache_control: { type: 'ephemeral' } });
+      }
+    }
+
+    docContent.push({ type: 'text', text:
       `You are an expert government proposal writer for ${CLIENT_CONFIG.companyFullName} (${CLIENT_CONFIG.companyShortName}), a ${CLIENT_CONFIG.businessType}.\n\n` +
-      `Extract all proposal metadata from the RFP documents above and generate complete tailored proposal content.\n\n` +
-      `## VOLUMES REQUESTED: ${genVols.map(v => 'Volume ' + v).join(', ')}\n\n` +
-      `## COMPANY PROFILE\n` +
-      `Name: ${CLIENT_CONFIG.companyFullName} | Type: ${CLIENT_CONFIG.businessType}\n` +
-      `Address: ${CLIENT_CONFIG.address}\n` +
-      `CAGE: ${CLIENT_CONFIG.cage} | UEI: ${CLIENT_CONFIG.uei}` + (CLIENT_CONFIG.gsaMas ? ` | GSA MAS: ${CLIENT_CONFIG.gsaMas}` : '') + `\n` +
-      `Clearances: ${CLIENT_CONFIG.clearances}\n\n` +
-      `## KEY PERSONNEL\n${personnelBlock}\n\n` +
-      `## CAPABILITIES: ${CLIENT_CONFIG.capabilities.join(', ')}\n\n` +
-      `## SYSTEMS: ${CLIENT_CONFIG.systemsExpertise.join(', ')}\n\n` +
-      `## PAST PERFORMANCE\n${ppBlock}\n\n` +
-      `## WRITING STYLE\n${CLIENT_CONFIG.writingStyle.join('\n')}\n` +
-      `Signature phrases: ${CLIENT_CONFIG.signaturePhrases.join(', ')}\n\n` +
-      `## NOTES: ${notes || 'None.'}\n` +
-      assumptionsContext + `\n\n` +
-      `Return ONLY a JSON object, no markdown fences, no preamble:\n` +
-      `{"solicitation_number":"","requirement_title":"","agency_name":"","agency_address":"",` +
-      `"agency_poc":"","agency_poc_email":"","agency_poc_phone":"","submission_date":"",` +
-      `"output_prefix":"${CLIENT_CONFIG.companyShortName}_Proposal",` +
-      `"volume1":{"understanding_of_requirement":"2-3 paragraph prose showing deep understanding of THIS specific requirement","technical_approach":"3-4 paragraph prose tailored to THIS PWS/SOW task areas","integrated_methodology":"2 paragraph narrative","staffing_plan":"staffing narrative for this requirement","key_personnel_intro":"paragraph introducing key personnel","sample_tasks":[]},` +
-      `"volume2":{"references":[{"program_name":"","contract_number":"","pm_name":"","pm_phone":"","pm_email":"","co_name":"","co_phone":"","co_email":"","cor_name":"","cor_phone":"","cor_email":"","contract_type":"","period_of_performance":"","total_value":"","prime_or_sub":"","overview":"2 paragraph prose","scope":"prose plus bullets","relevance":"prose mapping to THIS solicitation task areas","similarity":"bullet points"}]},` +
-      `"volume3":{"pricing_philosophy":"2 paragraph narrative","boe_narrative":"2 paragraph with [RATE] placeholders","wrap_rate_narrative":"wrap rate narrative","total_price_narrative":"narrative with [TOTAL] placeholders","compliance_additional":"solicitation-specific items","labor_categories":[]},` +
-      `"volume4":{"cover_letter_additional":"acknowledgements","additional_fill_ins":["fill-ins required"],"clearance_plan_additional":"clearance requirements","gfp":"GFP section","cmmc":"CMMC section"}}`
+      `COMPANY PROFILE:\nAddress: ${CLIENT_CONFIG.address} | CAGE: ${CLIENT_CONFIG.cage} | UEI: ${CLIENT_CONFIG.uei}` +
+      (CLIENT_CONFIG.gsaMas ? ` | GSA MAS: ${CLIENT_CONFIG.gsaMas}` : '') + `\nClearances: ${CLIENT_CONFIG.clearances}\n\n` +
+      `KEY PERSONNEL:\n${personnelBlock}\n\nCAPABILITIES: ${CLIENT_CONFIG.capabilities.join(', ')}\nSYSTEMS: ${CLIENT_CONFIG.systemsExpertise.join(', ')}\n\n` +
+      `PAST PERFORMANCE:\n${ppBlock}\n\nWRITING STYLE: ${CLIENT_CONFIG.writingStyle.join(' | ')}\nPhrases: ${CLIENT_CONFIG.signaturePhrases.join(', ')}\n\n` +
+      `NOTES FROM PROPOSAL MANAGER: ${notes || 'None'}\n${assumptionsCtx}${clarifyCtx}\n\n` +
+      `Read all documents above thoroughly. Extract and return a comprehensive JSON briefing that will be used to write all 4 proposal volumes. Return ONLY JSON:\n` +
+      `{"solicitation_number":"","requirement_title":"","agency_name":"","agency_address":"","agency_poc":"","agency_poc_email":"","agency_poc_phone":"","submission_date":"","contract_type":"","period_of_performance":"","naics":"","set_aside":"","place_of_performance":"","evaluation_factors":[""],"pws_task_areas":["task area name: brief description"],"page_limits":{},"key_requirements":["critical requirements from PWS"],"relevant_past_perf":["which past perf references are most relevant and why"],"technical_themes":["3-5 key technical themes that should run through all volumes"],"risks":["key risks and proposed mitigations"],"notes":"any other critical insights for proposal writing"}`
     });
 
-    allSteps[0].status = 'done'; allSteps[1].status = 'active';
-    setProgress(15, allSteps);
-    showStatus('info', 'Writing proposal...', 'Reading your documents and writing the proposal. This takes 1–3 minutes — please keep this tab open.', true);
-    log('Calling Claude API...');
-
-    // Standard API call — works from browser, supports large document payloads
-    allSteps[1].status = 'done'; allSteps[2].status = 'active';
-    setProgress(25, allSteps);
-
-    const apiResp = await fetch('https://api.anthropic.com/v1/messages', {
+    const briefResp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 8000,
-        messages: [{ role: 'user', content: messageContent }]
-      })
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01', 'anthropic-beta': 'prompt-caching-2024-07-31',
+        'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 4000,
+        messages: [{ role: 'user', content: docContent }] })
     });
 
-    if (!apiResp.ok) throw new Error(`API error ${apiResp.status}: ${await apiResp.text()}`);
-    const apiData = await apiResp.json();
-    const resultText = apiData.content.map(c => c.text || '').join('');
+    if (!briefResp.ok) throw new Error(`Briefing call error ${briefResp.status}: ${await briefResp.text()}`);
+    const briefData = await briefResp.json();
+    let briefRaw = briefData.content.map(c => c.text||'').join('').trim()
+      .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
+    if (!briefRaw.endsWith('}')) { const lb=briefRaw.lastIndexOf('}'); if(lb>0){briefRaw=briefRaw.substring(0,lb+1); const ob=(briefRaw.match(/\[/g)||[]).length-(briefRaw.match(/\]/g)||[]).length; for(let i=0;i<ob;i++) briefRaw+=']'; briefRaw+='}'; } }
+
+    let briefing;
+    try { briefing = JSON.parse(briefRaw); }
+    catch(e) { const m=briefRaw.match(/\{[\s\S]+\}/); if(m) briefing=JSON.parse(m[0]); else throw new Error('Could not parse briefing: '+briefRaw.substring(0,200)); }
+
+    cachedBriefing = briefing;
+    allSteps[0].status = 'done'; allSteps[1].status = 'done'; allSteps[2].status = 'active';
+    setProgress(35, allSteps);
+    showStatus('info', 'Writing proposal volumes...', `Briefing complete. Writing ${genVols.length} volume(s) — documents are cached so each call is fast.`, true);
+
+    // ── CALLS 2-5: Write each volume using briefing only (no raw docs) ────────
+    const proposalData = {
+      solicitation_number: briefing.solicitation_number,
+      requirement_title:   briefing.requirement_title,
+      agency_name:         briefing.agency_name,
+      agency_address:      briefing.agency_address,
+      agency_poc:          briefing.agency_poc,
+      agency_poc_email:    briefing.agency_poc_email,
+      agency_poc_phone:    briefing.agency_poc_phone,
+      submission_date:     briefing.submission_date,
+      output_prefix: (CLIENT_CONFIG.companyShortName + '_Proposal_' + (briefing.solicitation_number||'Draft')).replace(/[^a-zA-Z0-9_]/g,'_'),
+    };
+
+    const volDefs = {
+      '1': { label: 'Volume I - Technical', prompt:
+        `Write Volume I (Technical Approach) for ${briefing.requirement_title || 'this requirement'} (${briefing.solicitation_number || ''}).\n\n` +
+        `PWS TASK AREAS:\n${(briefing.pws_task_areas||[]).join('\n')}\n\n` +
+        `KEY REQUIREMENTS:\n${(briefing.key_requirements||[]).join('\n')}\n\n` +
+        `TECHNICAL THEMES TO WEAVE THROUGH:\n${(briefing.technical_themes||[]).join('\n')}\n\n` +
+        `RISKS & MITIGATIONS:\n${(briefing.risks||[]).join('\n')}\n\n` +
+        `Return ONLY JSON: {"understanding_of_requirement":"2-3 paragraph prose showing deep understanding","technical_approach":"3-4 paragraph prose tailored to EACH PWS task area","integrated_methodology":"2 paragraph narrative","staffing_plan":"narrative for this specific requirement","key_personnel_intro":"paragraph introducing key personnel","sample_tasks":[]}`
+      },
+      '2': { label: 'Volume II - Past Performance', prompt:
+        `Write Volume II (Past Performance) for ${briefing.requirement_title || 'this requirement'}.\n\n` +
+        `MOST RELEVANT PAST PERFORMANCE:\n${(briefing.relevant_past_perf||[]).join('\n')}\n\n` +
+        `EVALUATION FACTORS:\n${(briefing.evaluation_factors||[]).join('\n')}\n\n` +
+        `Return ONLY JSON: {"references":[{"program_name":"","contract_number":"","pm_name":"","pm_phone":"","pm_email":"","co_name":"","co_phone":"","co_email":"","cor_name":"","cor_phone":"","cor_email":"","contract_type":"","period_of_performance":"","total_value":"","prime_or_sub":"","overview":"2 paragraph prose","scope":"prose plus bullets","relevance":"prose mapping to THIS solicitation task areas","similarity":"bullet points"}]}`
+      },
+      '3': { label: 'Volume III - Price Narrative', prompt:
+        `Write Volume III (Price Narrative) for ${briefing.requirement_title || 'this requirement'}.\n\n` +
+        `CONTRACT TYPE: ${briefing.contract_type || 'TBD'}\n` +
+        `PERIOD: ${briefing.period_of_performance || 'TBD'}\n` +
+        `AGENCY: ${briefing.agency_name || 'TBD'}\n\n` +
+        `Return ONLY JSON: {"pricing_philosophy":"2 paragraph narrative","boe_narrative":"2 paragraph with [RATE] placeholders","wrap_rate_narrative":"wrap rate components narrative","total_price_narrative":"narrative with [TOTAL] placeholders","compliance_additional":"solicitation-specific compliance","labor_categories":[]}`
+      },
+      '4': { label: 'Volume IV - Contract Documentation', prompt:
+        `Write Volume IV (Contract Documentation) for ${briefing.requirement_title || 'this requirement'} (${briefing.solicitation_number || ''}).\n\n` +
+        `EVALUATION FACTORS: ${(briefing.evaluation_factors||[]).join(', ')}\n` +
+        `NOTES: ${briefing.notes || 'None'}\n\n` +
+        `Return ONLY JSON: {"cover_letter_additional":"solicitation-specific acknowledgements","additional_fill_ins":["specific fill-ins required"],"clearance_plan_additional":"clearance requirements","gfp":"GFP section","cmmc":"CMMC section"}`
+      },
+    };
+
+    const briefingContext =
+      `PROPOSAL BRIEFING (extracted from RFP documents):\n` +
+      `Sol: ${briefing.solicitation_number} | ${briefing.requirement_title} | ${briefing.agency_name}\n` +
+      `Contract Type: ${briefing.contract_type} | Period: ${briefing.period_of_performance}\n` +
+      `Place of Performance: ${briefing.place_of_performance}\n` +
+      `Set-aside: ${briefing.set_aside} | NAICS: ${briefing.naics}\n` +
+      `Technical Themes: ${(briefing.technical_themes||[]).join('; ')}\n` +
+      `Company: ${CLIENT_CONFIG.companyFullName} | ${CLIENT_CONFIG.businessType}\n` +
+      `Style: ${CLIENT_CONFIG.writingStyle.join(' | ')}\n` +
+      `Phrases: ${CLIENT_CONFIG.signaturePhrases.join(', ')}\n` +
+      `Personnel: ${personnelBlock}\n` +
+      `Past Performance: ${ppBlock}\n`;
+
+    const volResults = {};
+    const totalVols = genVols.length;
+    for (let i = 0; i < genVols.length; i++) {
+      const vol = genVols[i];
+      const def = volDefs[vol];
+      const pct = 35 + ((i+1)/totalVols) * 40;
+      showStatus('info', `Writing ${def.label}...`, `Volume ${i+1} of ${totalVols}`, true);
+      setProgress(pct, allSteps);
+
+      const volResp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01', 'anthropic-beta': 'prompt-caching-2024-07-31',
+          'anthropic-dangerous-direct-browser-access': 'true' },
+        body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 6000,
+          messages: [{ role: 'user', content: [
+            { type: 'text', text: briefingContext, cache_control: { type: 'ephemeral' } },
+            { type: 'text', text: def.prompt }
+          ]}]})
+      });
+
+      if (!volResp.ok) throw new Error(`Volume ${vol} error ${volResp.status}: ${await volResp.text()}`);
+      const volData = await volResp.json();
+      let volRaw = volData.content.map(c=>c.text||'').join('').trim()
+        .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
+      if (!volRaw.endsWith('}')) { const lb=volRaw.lastIndexOf('}'); if(lb>0){volRaw=volRaw.substring(0,lb+1); const ob=(volRaw.match(/\[/g)||[]).length-(volRaw.match(/\]/g)||[]).length; for(let j=0;j<ob;j++) volRaw+=']'; volRaw+='}'; } }
+      try { volResults[vol] = JSON.parse(volRaw); }
+      catch(e) { const m=volRaw.match(/\{[\s\S]+\}/); volResults[vol] = m ? JSON.parse(m[0]) : {}; }
+    }
+
+    proposalData.volume1 = volResults['1'] || {};
+    proposalData.volume2 = volResults['2'] || {};
+    proposalData.volume3 = volResults['3'] || {};
+    proposalData.volume4 = volResults['4'] || {};
 
     allSteps[2].status = 'done'; allSteps[3].status = 'active';
-    setProgress(75, allSteps);
-    showStatus('info', 'Building Word documents...', 'Assembling .docx files now.', true);
-    log('Response received. Parsing proposal data...');
-
-    // Parse JSON
-    let raw = resultText.trim()
-      .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
-    if (!raw.endsWith('}')) {
-      const lb = raw.lastIndexOf('}');
-      if (lb > 0) {
-        raw = raw.substring(0, lb+1);
-        const ob = (raw.match(/\[/g)||[]).length - (raw.match(/\]/g)||[]).length;
-        for (let i=0; i<ob; i++) raw += ']';
-        raw += '}';
-      }
-    }
-    let proposalData;
-    try { proposalData = JSON.parse(raw); }
-    catch(e) {
-      const m = raw.match(/\{[\s\S]+\}/);
-      if (m) proposalData = JSON.parse(m[0]);
-      else throw new Error('Could not parse proposal JSON: ' + raw.substring(0,200));
-    }
-
-    proposalData.output_prefix = (CLIENT_CONFIG.companyShortName + '_Proposal_' +
-      (proposalData.solicitation_number || 'Draft')).replace(/[^a-zA-Z0-9_]/g,'_');
-    log('Parsed. Sol: ' + (proposalData.solicitation_number || 'not found') + ' | Agency: ' + (proposalData.agency_name || 'not found'));
+    setProgress(80, allSteps);
+    showStatus('info', 'Building Word documents...', 'All volumes written. Assembling .docx files.', true);
 
     const docs = await generateDocsClientSide(proposalData, genVols);
     allSteps[3].status = 'done';
     setProgress(100, allSteps);
-    log('All documents generated!');
     showStatus('success', 'Proposal ready!', 'Your proposal volumes are ready to download. Review all content before submission.');
     renderDownloads(docs);
     setRunning(false);
 
   } catch(err) {
-    log('ERROR: ' + err.message, 'err');
     showStatus('error', 'Generation failed', err.message);
+    console.error(err);
     setRunning(false);
   }
 }
