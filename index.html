@@ -4,30 +4,26 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>SRFed Proposal Generator</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
 <script>
-// Load docx.js dynamically with fallback CDNs
-(function() {
-  var cdns = [
-    'https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js',
-    'https://unpkg.com/docx@8.5.0/build/index.js',
-  ];
-  var idx = 0;
-  function tryNext() {
-    if (idx >= cdns.length) {
-      window._docxLoadFailed = true;
-      console.error('docx.js failed to load from all CDNs');
-      return;
-    }
-    var s = document.createElement('script');
-    s.src = cdns[idx++];
-    s.onerror = function() { tryNext(); };
-    document.head.appendChild(s);
-  }
-  tryNext();
-})();
+// Load docx.js with automatic fallback
+window._docxLoaded = false;
+function _loadDocx(urls, idx) {
+  if (idx >= urls.length) { window._docxLoadFailed = true; return; }
+  var s = document.createElement('script');
+  s.crossOrigin = 'anonymous';
+  s.src = urls[idx];
+  s.onload  = function() { window._docxLoaded = true; };
+  s.onerror = function() { _loadDocx(urls, idx + 1); };
+  document.head.appendChild(s);
+}
+_loadDocx([
+  'https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js',
+  'https://unpkg.com/docx@8.5.0/build/index.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/index.js'
+], 0);
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.10.0/lib/msal-browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.10.0/lib/msal-browser.min.js" crossorigin="anonymous"></script>
 <style>
   :root {
     /* ── SRFed Brand Palette ── */
@@ -394,9 +390,14 @@
   }
   .assumption-scroll-panel {
     max-height: 600px;
-    overflow-y: auto;
+    overflow-y: scroll;  /* scroll instead of auto forces scroll context */
     padding-right: 4px;
-    overscroll-behavior: contain;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Prevent scroll capture on parent when child scroll ends */
+  .assumptions-two-col {
+    overscroll-behavior: none;
   }
 
   /* ── CLARIFYING QUESTIONS ── */
@@ -592,11 +593,15 @@
             <label>Resumes Folder URL</label>
             <input type="text" id="spResumes" placeholder="https://yourcompany.sharepoint.com/.../Resumes"/>
           </div>
-          <div class="form-group" style="margin-bottom:0">
+          <div class="form-group">
             <label>Boilerplate / Capabilities Folder URL</label>
             <input type="text" id="spBoilerplate" placeholder="https://yourcompany.sharepoint.com/.../Boilerplate"/>
           </div>
-          <p class="tip" style="margin-top:10px">Leave any folder blank to skip it. Step 3 is optional — company data from your profile will be used if skipped.</p>
+          <p class="tip" style="margin-top:10px;margin-bottom:14px">Leave any folder blank to skip it. Step 3 is optional — company data from your profile will be used if skipped.</p>
+          <button class="btn btn-primary" id="spLoadBtn" onclick="loadSharePointFiles()" style="width:100%">
+            <span id="spLoadIcon">🔗</span> <span id="spLoadText">Load Files from SharePoint</span>
+          </button>
+          <div id="spFileList" style="margin-top:12px"></div>
         </div>
       </div>
     </div>
@@ -1138,14 +1143,170 @@ function buildAcceptedAssumptionsContext() {
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
 let rfpFiles     = [];   // RFP / PWS / solicitation docs
-let companyFiles = [];   // company / past performance docs
+let companyFiles = [];   // company / past performance docs (dropped)
+let spFiles      = [];   // files fetched from SharePoint (treated same as companyFiles for token/generation)
 let generatedDocs = {};
 let assumptions        = [];   // [{id, category, label, value, status, correction}]
 let clarifyingQuestions = [];  // [{id, category, label, question, answer}]
 let cachedBriefing     = null; // structured briefing JSON from Call 1, reused for all volume calls
 let analysisComplete = false;
 
-// ─── STEP LOCKING ─────────────────────────────────────────────────────────────
+// ─── SHAREPOINT FILE LOADING ──────────────────────────────────────────────────
+
+// Convert a SharePoint folder URL to a Graph API drive item path
+function spUrlToGraphPath(spUrl) {
+  // Format: https://tenant.sharepoint.com/sites/SiteName/Shared Documents/FolderName
+  // Or shared link format: https://tenant.sharepoint.com/:f:/s/SiteName/...
+  // We use the /sites/{site}/drive/root:/{path} endpoint
+  try {
+    const url = new URL(spUrl);
+    const host = url.hostname; // e.g. srfed.sharepoint.com
+    const path = url.pathname; // e.g. /sites/SiteName/Shared Documents/FolderPath
+
+    // Extract site name and folder path
+    const siteMatch = path.match(/^\/sites\/([^/]+)(.*)$/);
+    if (!siteMatch) return null;
+    const siteName   = siteMatch[1];
+    const folderPath = siteMatch[2].replace(/^\/Shared Documents/, '').replace(/^\//, '') || '';
+
+    return { host, siteName, folderPath };
+  } catch(e) {
+    return null;
+  }
+}
+
+async function getSpAccessToken() {
+  if (!msalClient || !msAccount) throw new Error('Not signed in to Microsoft.');
+  const tokenResp = await msalClient.acquireTokenSilent({
+    scopes: SP_SCOPES, account: msAccount
+  }).catch(() => msalClient.acquireTokenPopup({ scopes: SP_SCOPES, account: msAccount }));
+  return tokenResp.accessToken;
+}
+
+async function fetchSpFolderFiles(folderUrl, token) {
+  const parsed = spUrlToGraphPath(folderUrl);
+  if (!parsed) {
+    // Try as a direct sharing link — use /shares endpoint
+    const encodedUrl = btoa(folderUrl).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+    const sharesUrl = `https://graph.microsoft.com/v1.0/shares/u!${encodedUrl}/driveItem/children`;
+    const resp = await fetch(sharesUrl, { headers: { Authorization: `Bearer ${token}` }});
+    if (!resp.ok) throw new Error(`SharePoint access failed: ${resp.status} ${await resp.text()}`);
+    const data = await resp.json();
+    return data.value || [];
+  }
+
+  const { host, siteName, folderPath } = parsed;
+  // Get site ID
+  const siteResp = await fetch(`https://graph.microsoft.com/v1.0/sites/${host}:/sites/${siteName}`,
+    { headers: { Authorization: `Bearer ${token}` }});
+  if (!siteResp.ok) throw new Error(`Cannot access site "${siteName}": ${siteResp.status}`);
+  const siteData = await siteResp.json();
+  const siteId   = siteData.id;
+
+  // List files in folder
+  const folderEndpoint = folderPath
+    ? `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:/${encodeURIComponent(folderPath)}:/children`
+    : `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root/children`;
+
+  const filesResp = await fetch(folderEndpoint, { headers: { Authorization: `Bearer ${token}` }});
+  if (!filesResp.ok) throw new Error(`Cannot list folder "${folderPath}": ${filesResp.status}`);
+  const filesData = await filesResp.json();
+  return (filesData.value || []).filter(f => f.file); // only files, not sub-folders
+}
+
+async function downloadSpFile(item, token) {
+  const dlUrl = item['@microsoft.graph.downloadUrl'] || item.downloadUrl;
+  const resp  = await fetch(dlUrl, { headers: { Authorization: `Bearer ${token}` }});
+  if (!resp.ok) throw new Error(`Download failed for ${item.name}`);
+  const blob = await resp.blob();
+  // Create a File object so it works with the rest of our pipeline
+  return new File([blob], item.name, { type: blob.type || 'application/octet-stream', lastModified: Date.now() });
+}
+
+async function loadSharePointFiles() {
+  const ppUrl   = document.getElementById('spPP').value.trim();
+  const resUrl  = document.getElementById('spResumes').value.trim();
+  const bpUrl   = document.getElementById('spBoilerplate').value.trim();
+  const urls    = [ppUrl, resUrl, bpUrl].filter(u => u);
+
+  if (urls.length === 0) {
+    showStatus('warn', 'No folders specified', 'Enter at least one SharePoint folder URL in Step 3.');
+    return;
+  }
+
+  const btn = document.getElementById('spLoadBtn');
+  btn.disabled = true;
+  document.getElementById('spLoadIcon').innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px"></div>';
+  document.getElementById('spLoadText').textContent = 'Loading...';
+  showStatus('info', 'Loading SharePoint files...', `Connecting to ${urls.length} folder(s).`, true);
+
+  try {
+    const token = await getSpAccessToken();
+    const loadedFiles = [];
+    const errors = [];
+
+    for (const url of urls) {
+      try {
+        showStatus('info', 'Loading SharePoint files...', `Reading: ${url.substring(0, 60)}...`, true);
+        const items = await fetchSpFolderFiles(url, token);
+        // Filter to supported types
+        const supported = items.filter(f =>
+          f.name.match(/\.(pdf|docx?|xlsx?)$/i) &&
+          f.size < 50 * 1024 * 1024  // skip files over 50MB
+        );
+        for (const item of supported) {
+          const file = await downloadSpFile(item, token);
+          loadedFiles.push(file);
+        }
+      } catch(e) {
+        errors.push(`${url.substring(0,40)}: ${e.message}`);
+      }
+    }
+
+    // Store in spFiles and merge into companyFiles for processing
+    spFiles = loadedFiles;
+    // Remove any previously loaded SP files from companyFiles, add new ones
+    companyFiles = [...companyFiles.filter(f => !f._fromSP), ...loadedFiles.map(f => Object.assign(f, {_fromSP: true}))];
+
+    // Render SP file list in Step 3
+    const listEl = document.getElementById('spFileList');
+    if (loadedFiles.length > 0) {
+      listEl.innerHTML = `<div style="margin-top:8px">
+        <div class="section-label" style="margin-top:0">📂 ${loadedFiles.length} file(s) loaded from SharePoint</div>
+        ${loadedFiles.map(f => {
+          const icon = f.name.endsWith('.pdf') ? '📄' : f.name.match(/\.docx?$/) ? '📝' : '📊';
+          const size = f.size < 1048576 ? `${(f.size/1024).toFixed(0)} KB` : `${(f.size/1048576).toFixed(1)} MB`;
+          const tok  = estimateTokens(f);
+          const tokLabel = tok >= 1000 ? `~${Math.round(tok/1000)}k tokens` : `~${tok} tokens`;
+          return `<div class="file-item" style="background:#f0f9ff;border-color:#bae6fd">
+            <span class="file-icon">${icon}</span>
+            <span class="file-name">${escHtml(f.name)}</span>
+            <span class="file-meta"><span class="file-size">${size}</span><span class="file-tokens">${tokLabel}</span></span>
+          </div>`;
+        }).join('')}
+      </div>`;
+      if (errors.length > 0) {
+        listEl.innerHTML += `<div style="margin-top:8px;font-size:12px;color:var(--warn)">⚠️ Some folders had errors: ${errors.join('; ')}</div>`;
+      }
+    } else {
+      listEl.innerHTML = `<div style="font-size:13px;color:var(--muted);margin-top:8px">No supported files found in the specified folders.${errors.length > 0 ? ' Errors: ' + errors.join('; ') : ''}</div>`;
+    }
+
+    updateTokenMeter(); // reflect SP files in token count
+    showStatus('success', 'SharePoint files loaded',
+      `${loadedFiles.length} file(s) loaded from SharePoint and added to your document bundle.`);
+
+  } catch(e) {
+    showStatus('error', 'SharePoint load failed', e.message);
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    document.getElementById('spLoadIcon').textContent = '🔗';
+    document.getElementById('spLoadText').textContent = 'Reload Files from SharePoint';
+  }
+}
+
+
 function setStepLocked(cardId, locked) {
   const card = document.getElementById(cardId);
   if (!card) return;
@@ -1264,7 +1425,7 @@ function renderFileListById(arr, listId) {
 }
 
 function updateTokenMeter() {
-  const allFiles = [...rfpFiles, ...companyFiles];
+  const allFiles = [...rfpFiles, ...companyFiles]; // companyFiles already includes spFiles
   const meter    = document.getElementById('tokenMeter');
   if (!meter) return;
 
@@ -1433,7 +1594,11 @@ async function runAnalysis() {
   btn.disabled = true;
   document.getElementById('analyzeBtnIcon').innerHTML = '<div class="spinner"></div>';
   document.getElementById('analyzeBtnText').textContent = 'Analyzing...';
-  showStatus('info', 'Analyzing documents...', `Reading ${rfpFiles.length} file(s). This takes 20–40 seconds.`, true);
+  const totalFiles = rfpFiles.length + companyFiles.length;
+  showStatus('info', 'Analyzing documents...', 
+    `Reading ${rfpFiles.length} RFP document${rfpFiles.length > 1 ? 's' : ''}` +
+    (companyFiles.length > 0 ? ` (company documents use your profile data)` : '') +
+    `. This takes 20–40 seconds.`, true);
   setProgress(10, [{ text: 'Reading RFP documents', status: 'active' }, { text: 'Building review panels', status: '' }]);
 
   try {
@@ -1747,14 +1912,39 @@ async function runGeneration() {
 }
 
 // ─── REAL .DOCX GENERATION (docx.js) ─────────────────────────────────────────
+
+// Wait up to 20 seconds for docx.js to finish loading
+function waitForDocx() {
+  return new Promise((resolve, reject) => {
+    if (typeof docx !== 'undefined') { resolve(); return; }
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      if (typeof docx !== 'undefined') {
+        clearInterval(interval);
+        resolve();
+      } else if (window._docxLoadFailed || attempts > 40) {
+        clearInterval(interval);
+        reject(new Error(
+          'Word document library failed to load from CDN.\n\n' +
+          'Most likely cause: an ad blocker or browser extension is blocking external scripts.\n\n' +
+          'Fix: disable your ad blocker for srfed.github.io, then do a hard refresh (Ctrl+Shift+R) and try again.'
+        ));
+      }
+    }, 500);
+  });
+}
+
 async function generateDocsClientSide(proposalData, volumes) {
-  const docs = {};
+  const docs   = {};
   const errors = [];
   const prefix = proposalData.output_prefix || (CLIENT_CONFIG.companyShortName + '_Proposal');
 
-  // Verify docx library loaded
-  if (typeof docx === 'undefined') {
-    throw new Error('Word document library (docx.js) failed to load. Please check your internet connection and reload the page.');
+  // Wait for docx.js to load (it loads asynchronously from CDN)
+  try {
+    await waitForDocx();
+  } catch(e) {
+    throw e;
   }
 
   const volConfigs = {
