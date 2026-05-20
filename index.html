@@ -146,9 +146,41 @@
   }
   .file-item .file-icon { font-size: 18px; flex-shrink: 0; }
   .file-item .file-name { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .file-item .file-size { color: var(--muted); font-size: 12px; flex-shrink: 0; }
+  .file-item .file-meta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .file-item .file-size { color: var(--muted); font-size: 12px; }
+  .file-item .file-tokens { font-size: 11px; font-weight: 600; background: var(--pale); border: 1px solid var(--light-blue); color: var(--blue); border-radius: 10px; padding: 1px 8px; }
   .file-item .file-remove { cursor: pointer; color: var(--muted); font-size: 16px; flex-shrink: 0; }
   .file-item .file-remove:hover { color: var(--error); }
+
+  /* ── TOKEN METER ── */
+  .token-meter {
+    margin-top: 16px;
+    padding: 14px 16px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .token-meter-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px; font-size: 13px;
+  }
+  .token-meter-label { font-weight: 600; color: var(--text); }
+  .token-meter-count { font-weight: 700; font-size: 14px; }
+  .token-meter-count.safe   { color: var(--success); }
+  .token-meter-count.warn   { color: var(--warn); }
+  .token-meter-count.danger { color: var(--error); }
+  .token-bar-track {
+    height: 10px; background: #e5e7eb;
+    border-radius: 5px; overflow: hidden;
+  }
+  .token-bar-fill {
+    height: 100%; border-radius: 5px;
+    transition: width 0.4s ease, background-color 0.4s ease;
+    background: var(--success);
+  }
+  .token-bar-fill.warn   { background: #f59e0b; }
+  .token-bar-fill.danger { background: #ef4444; }
+  .token-meter-sub { margin-top: 6px; font-size: 11px; color: var(--muted); }
 
   /* ── FORM ── */
   .form-group { margin-bottom: 16px; }
@@ -229,8 +261,19 @@
   .status-bar .status-title { font-weight: 700; margin-bottom: 4px; }
 
   .progress-wrap { margin-top: 12px; }
-  .progress-bar { height: 6px; background: var(--light-blue); border-radius: 3px; overflow: hidden; }
-  .progress-fill { height: 100%; background: var(--mid-blue); border-radius: 3px; transition: width 0.4s ease; }
+  .progress-bar { height: 8px; background: var(--light-blue); border-radius: 4px; overflow: hidden; }
+  .progress-fill {
+    height: 100%; background: var(--mid-blue); border-radius: 4px;
+    transition: width 0.4s ease;
+  }
+  .progress-fill.pulsing {
+    animation: progressPulse 1.8s ease-in-out infinite;
+  }
+  @keyframes progressPulse {
+    0%   { box-shadow: 0 0 4px 1px rgba(5,118,255,0.3); opacity: 1; }
+    50%  { box-shadow: 0 0 14px 4px rgba(5,118,255,0.7); opacity: 0.85; }
+    100% { box-shadow: 0 0 4px 1px rgba(5,118,255,0.3); opacity: 1; }
+  }
   .progress-steps { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
   .progress-step { font-size: 13px; display: flex; align-items: center; gap: 8px; color: var(--muted); }
   .progress-step.done { color: var(--success); }
@@ -554,6 +597,18 @@
       </div>
       <p class="tip" style="margin-top:16px">💡 RFP documents are required. Company documents supplement your profile data — drop them here or connect SharePoint in Step 2.</p>
       <div id="fileSizeWarning" style="display:none;margin-top:12px;padding:12px 14px;background:var(--error-bg);border:1px solid #fca5a5;border-radius:8px;font-size:13px;color:var(--error);line-height:1.5"></div>
+
+      <!-- Token meter — shown once any file is uploaded -->
+      <div class="token-meter" id="tokenMeter" style="display:none">
+        <div class="token-meter-header">
+          <span class="token-meter-label">📊 Estimated Token Usage</span>
+          <span class="token-meter-count safe" id="tokenMeterCount">0k / 380k tokens</span>
+        </div>
+        <div class="token-bar-track">
+          <div class="token-bar-fill" id="tokenBarFill" style="width:0%"></div>
+        </div>
+        <div class="token-meter-sub" id="tokenMeterSub">Add documents above to see estimated usage.</div>
+      </div>
     </div>
   </div>
 
@@ -954,6 +1009,15 @@ function showStatus(type, title, msg, showProgress = false) {
   document.getElementById('statusMsg').textContent = msg;
   const pw = document.getElementById('progressWrap');
   pw.style.display = showProgress ? 'block' : 'none';
+  // Pulse when actively processing (info), stop when done or error
+  const fill = document.getElementById('progressFill');
+  if (fill) {
+    if (type === 'info' && showProgress) {
+      fill.classList.add('pulsing');
+    } else {
+      fill.classList.remove('pulsing');
+    }
+  }
 }
 
 function setProgress(pct, steps) {
@@ -1121,17 +1185,55 @@ function removeFileFromArray(name, arr, listId) {
 function renderFileListById(arr, listId) {
   const el = document.getElementById(listId);
   if (!el) return;
-  if (arr.length === 0) { el.innerHTML = ''; return; }
+  if (arr.length === 0) { el.innerHTML = ''; updateTokenMeter(); return; }
   el.innerHTML = arr.map(f => {
-    const icon = f.name.endsWith('.pdf') ? '📄' : f.name.match(/\.docx?$/) ? '📝' : '📊';
-    const size = f.size < 1048576 ? `${(f.size/1024).toFixed(0)} KB` : `${(f.size/1048576).toFixed(1)} MB`;
+    const icon   = f.name.endsWith('.pdf') ? '📄' : f.name.match(/\.docx?$/) ? '📝' : '📊';
+    const size   = f.size < 1048576 ? `${(f.size/1024).toFixed(0)} KB` : `${(f.size/1048576).toFixed(1)} MB`;
+    const tokEst = estimateTokens(f);
+    const tokLabel = tokEst >= 1000 ? `~${Math.round(tokEst/1000)}k tokens` : `~${tokEst} tokens`;
+    const arrName  = arr === rfpFiles ? 'rfpFiles' : 'companyFiles';
     return `<div class="file-item">
       <span class="file-icon">${icon}</span>
       <span class="file-name">${escHtml(f.name)}</span>
-      <span class="file-size">${size}</span>
-      <span class="file-remove" onclick="removeFileFromArray('${f.name.replace(/'/g,"\\'")}', ${arr === rfpFiles ? 'rfpFiles' : 'companyFiles'}, '${listId}')">✕</span>
+      <span class="file-meta">
+        <span class="file-size">${size}</span>
+        <span class="file-tokens">${tokLabel}</span>
+      </span>
+      <span class="file-remove" onclick="removeFileFromArray('${f.name.replace(/'/g,"\\'")}', ${arrName}, '${listId}')">✕</span>
     </div>`;
   }).join('');
+  updateTokenMeter();
+}
+
+function updateTokenMeter() {
+  const allFiles = [...rfpFiles, ...companyFiles];
+  const meter    = document.getElementById('tokenMeter');
+  if (!meter) return;
+
+  if (allFiles.length === 0) {
+    meter.style.display = 'none';
+    return;
+  }
+
+  meter.style.display = 'block';
+  const total    = allFiles.reduce((s, f) => s + estimateTokens(f), 0);
+  const MAX      = 380000;
+  const pct      = Math.min((total / MAX) * 100, 100);
+  const totalK   = total >= 1000 ? `~${Math.round(total/1000)}k` : `~${total}`;
+  const maxK     = `${Math.round(MAX/1000)}k`;
+
+  // Color thresholds: green <60%, yellow 60-85%, red >85%
+  const level    = pct >= 85 ? 'danger' : pct >= 60 ? 'warn' : 'safe';
+  const labels   = { safe: '✅ Well within limits', warn: '⚠️ Getting large — consider trimming', danger: '🔴 Very large bundle — trim if generation fails' };
+
+  document.getElementById('tokenMeterCount').textContent  = `${totalK} / ${maxK} tokens`;
+  document.getElementById('tokenMeterCount').className    = `token-meter-count ${level}`;
+  const fill = document.getElementById('tokenBarFill');
+  fill.style.width = pct + '%';
+  fill.className   = `token-bar-fill ${level === 'safe' ? '' : level}`;
+  document.getElementById('tokenMeterSub').textContent = labels[level] +
+    ` · ${allFiles.length} file${allFiles.length > 1 ? 's' : ''}` +
+    (rfpFiles.length > 0 ? ` (${rfpFiles.length} RFP` + (companyFiles.length > 0 ? `, ${companyFiles.length} company)` : ')') : '');
 }
 
 // Init both drop zones on load
@@ -1220,11 +1322,13 @@ function updateAssumptionSummary() {
 }
 
 // ─── TOKEN PRE-FLIGHT CHECK ───────────────────────────────────────────────────
-// Tier 2 limit: 450,000 tokens/minute. Single file safety ceiling: 400,000 tokens.
-// ~1,500 tokens per KB is a conservative estimate for PDFs.
-const TOKENS_PER_KB    = 1500;
-const MAX_FILE_TOKENS  = 400000;  // ~267 pages — hard ceiling per file
-const MAX_TOTAL_TOKENS = 400000;  // total bundle ceiling per call
+// Tier 2 limit: 450,000 tokens/minute.
+// Realistic token estimates: PDFs compress heavily in storage.
+// Actual tokens ≈ 100-150 per KB for typical government PDFs (mostly text).
+// We use 150 tokens/KB as a conservative-but-realistic estimate.
+const TOKENS_PER_KB    = 150;    // realistic: ~150 tokens per KB for PDFs
+const MAX_FILE_TOKENS  = 380000; // single file ceiling (~2,500 pages) — extremely generous
+const MAX_TOTAL_TOKENS = 380000; // total bundle ceiling — stays under 450k TPM limit
 
 function estimateTokens(file) {
   return Math.ceil((file.size / 1024) * TOKENS_PER_KB);
@@ -1238,16 +1342,16 @@ function preflightCheck(rfpArr, companyArr) {
   if (tooLarge.length > 0) {
     return {
       ok: false, tooLarge, totalEstimate: totalEst,
-      message: `${tooLarge.length} file(s) are too large to process:\n` +
+      message: `${tooLarge.length} file(s) may be too large to process:\n` +
         tooLarge.map(f => `  • ${f.name} (~${Math.round(estimateTokens(f)/1000)}k tokens estimated)`).join('\n') +
-        `\n\nEach file must be under approximately 267 pages. For large government documents, upload only the key sections: PWS, Section L (Instructions to Offerors), Section M (Evaluation Criteria), and amendments. Boilerplate FAR clauses, wage determinations, and standard forms can be omitted.`
+        `\n\nFor very large documents (500+ pages), upload only the key sections: PWS, Section L (Instructions to Offerors), Section M (Evaluation Criteria), and amendments. Boilerplate FAR clauses, wage determinations, and standard forms can be omitted.`
     };
   }
 
   if (totalEst > MAX_TOTAL_TOKENS) {
     return {
       ok: false, tooLarge: [], totalEstimate: totalEst,
-      message: `Your total document bundle is too large (~${Math.round(totalEst/1000)}k tokens estimated, limit is ~267 pages total).\n\nReduce the number of files or upload only the key proposal-relevant sections: PWS, Section L, Section M, and amendments.`
+      message: `Your total document bundle may be very large (~${Math.round(totalEst/1000)}k tokens estimated).\n\nIf generation fails, reduce the bundle by uploading only the key proposal-relevant sections: PWS, Section L, Section M, and amendments.`
     };
   }
 
@@ -1263,8 +1367,8 @@ async function runAnalysis() {
 
   const preflight = preflightCheck(rfpFiles, []);
   if (!preflight.ok) {
-    showStatus('error', 'Documents too large to process', preflight.message);
-    return;
+    // Show warning but don't block — let it run and fail gracefully if truly too large
+    showStatus('warn', 'Large document bundle', preflight.message + '\n\nAttempting to proceed — if the call fails, reduce the bundle size.');
   }
 
   const btn = document.getElementById('analyzeBtn');
@@ -1419,11 +1523,11 @@ async function runGeneration() {
   const apiKey = getApiKey();
   if (!apiKey) { showStatus('error', 'No API key', 'Enter your Anthropic API key in Step 1.'); return; }
 
-  // Pre-flight — must pass before anything fires
+  // Pre-flight — warn if bundle is very large but don't block
   const preflight = preflightCheck(rfpFiles, companyFiles);
   if (!preflight.ok) {
-    showStatus('error', 'Cannot generate — documents too large', preflight.message);
-    return;
+    // Show warning in status but proceed — actual API error will catch truly oversized bundles
+    showStatus('warn', 'Large document bundle detected', preflight.message);
   }
 
   setRunning(true);
