@@ -908,6 +908,123 @@ function renderMsState() {
 // Initialize on load
 window.addEventListener('load', () => { applyClientConfig(); initMsal(); });
 
+// ─── API KEY MANAGEMENT ───────────────────────────────────────────────────────
+function saveApiKey(value) {
+  const trimmed = value.trim();
+  if (trimmed) {
+    sessionStorage.setItem('srfed_api_key', trimmed);
+    document.getElementById('apiKeyStatus').textContent = '✅ Key saved for this session.';
+    document.getElementById('apiKeyStatus').style.color = 'var(--success)';
+  } else {
+    sessionStorage.removeItem('srfed_api_key');
+    document.getElementById('apiKeyStatus').textContent = 'Key cleared.';
+    document.getElementById('apiKeyStatus').style.color = 'var(--muted)';
+  }
+}
+
+function toggleApiKeyVisibility() {
+  const input = document.getElementById('apiKeyInput');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+function getApiKey() {
+  return sessionStorage.getItem('srfed_api_key') || CLIENT_CONFIG.anthropicApiKey || null;
+}
+
+function restoreApiKey() {
+  const saved = sessionStorage.getItem('srfed_api_key');
+  if (saved) {
+    const input = document.getElementById('apiKeyInput');
+    if (input) {
+      input.value = saved;
+      document.getElementById('apiKeyStatus').textContent = '✅ Key restored from session.';
+      document.getElementById('apiKeyStatus').style.color = 'var(--success)';
+    }
+  }
+}
+
+// ─── STATUS / PROGRESS / UTILITIES ───────────────────────────────────────────
+function showStatus(type, title, msg, showProgress = false) {
+  const icons = { info: 'ℹ️', success: '✅', warn: '⚠️', error: '❌' };
+  const bar = document.getElementById('statusBar');
+  bar.className = `status-bar ${type}`;
+  bar.style.display = 'flex';
+  document.getElementById('statusIcon').textContent = icons[type] || 'ℹ️';
+  document.getElementById('statusTitle').textContent = title;
+  document.getElementById('statusMsg').textContent = msg;
+  const pw = document.getElementById('progressWrap');
+  pw.style.display = showProgress ? 'block' : 'none';
+}
+
+function setProgress(pct, steps) {
+  const fill = document.getElementById('progressFill');
+  if (fill) fill.style.width = pct + '%';
+  if (steps && steps.length > 0) {
+    const stepsEl = document.getElementById('progressSteps');
+    if (stepsEl) stepsEl.innerHTML = steps.map(s =>
+      `<div class="progress-step ${s.status}"><span class="step-icon">${s.status === 'done' ? '✅' : s.status === 'active' ? '⏳' : '○'}</span>${s.text}</div>`
+    ).join('');
+  }
+}
+
+function log(msg, type = '') {
+  // Internal only — log box hidden from users
+  console.log(`[${type||'info'}] ${msg}`);
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function setRunning(running) {
+  const btn  = document.getElementById('runBtn');
+  const icon = document.getElementById('runBtnIcon');
+  const text = document.getElementById('runBtnText');
+  if (!btn) return;
+  btn.disabled = running;
+  if (running) {
+    if (icon) icon.outerHTML = '<span id="runBtnIcon" class="spinner"></span>';
+    if (text) text.textContent = 'Generating…';
+  } else {
+    const iconEl = document.getElementById('runBtnIcon');
+    if (iconEl) iconEl.outerHTML = '<span id="runBtnIcon">✨</span>';
+    if (text) text.textContent = 'Generate Proposal Documents';
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+function getMimeType(file) {
+  if (file.name.endsWith('.pdf')) return 'application/pdf';
+  if (file.name.match(/\.docx?$/)) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  if (file.name.match(/\.xlsx?$/)) return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  return 'application/octet-stream';
+}
+
+function buildAcceptedAssumptionsContext() {
+  const accepted  = assumptions.filter(a => a.status === 'accepted');
+  const rejected  = assumptions.filter(a => a.status === 'rejected');
+  const corrected = assumptions.filter(a => a.status === 'rejected' && a.correction && a.correction.trim());
+  let ctx = '\n## VERIFIED ASSUMPTIONS (confirmed by proposal manager)\n';
+  accepted.forEach(a  => { ctx += `- ${a.label}: ${a.value}\n`; });
+  corrected.forEach(a => { ctx += `- ${a.label}: ${a.correction} [corrected from: ${a.value}]\n`; });
+  const excluded = rejected.filter(a => !a.correction || !a.correction.trim());
+  if (excluded.length > 0) {
+    ctx += '\n## EXCLUDED — do NOT reference these\n';
+    excluded.forEach(a => { ctx += `- ${a.label}: "${a.value}" — EXCLUDED\n`; });
+  }
+  return ctx;
+}
+
+
 // ─── STATE ───────────────────────────────────────────────────────────────────
 let rfpFiles     = [];   // RFP / PWS / solicitation docs
 let companyFiles = [];   // company / past performance docs
