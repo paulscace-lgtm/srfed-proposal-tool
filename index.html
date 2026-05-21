@@ -142,8 +142,11 @@
     border-radius: 6px;
     padding: 8px 12px;
     font-size: 13px;
+    min-width: 0;
+    overflow: hidden;
   }
-  .file-item .file-icon { font-size: 18px; flex-shrink: 0; }
+  .file-item .file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-item .file-meta { flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
   .badge-no-token {
     font-size: 11px; font-weight: 600;
     background: #f0fdf4; border: 1px solid #86efac;
@@ -640,10 +643,10 @@
     <div class="card-header"><span class="icon">📁</span> Step 4: Drop Documents</div>
     <div class="card-body">
       <div class="lock-msg"><span class="lock-icon">🔒</span><span class="lock-text">Complete steps 1 &amp; 2 to unlock</span></div>
-      <div class="two-col" style="gap:20px">
+      <div class="two-col" style="gap:20px;min-width:0">
 
         <!-- Left: RFP / PWS documents -->
-        <div>
+        <div style="min-width:0;overflow:hidden">
           <div class="section-label">📄 RFP / PWS / Solicitation Documents</div>
           <div class="drop-zone" id="dropZoneRFP">
             <input type="file" id="fileInputRFP" multiple accept=".pdf,.docx,.doc,.xlsx,.xls"/>
@@ -655,7 +658,7 @@
         </div>
 
         <!-- Right: Company / past performance documents -->
-        <div>
+        <div style="min-width:0;overflow:hidden">
           <div class="section-label">🏢 Additional Company Documents <span style="font-weight:400;color:var(--muted)">(supplements SharePoint — optional)</span></div>
           <div class="drop-zone" id="dropZoneCompany">
             <input type="file" id="fileInputCompany" multiple accept=".pdf,.docx,.doc,.xlsx,.xls"/>
@@ -2475,7 +2478,6 @@ function escRegex(s) {
 }
 
 function textToWordParas(text, rprXml) {
-  // Convert plain text (potentially multi-paragraph) into Word XML paragraphs
   if (!text) return '';
   const rpr = rprXml || '<w:rPr><w:color w:val="000000"/></w:rPr>';
   return text.split('\n')
@@ -2484,49 +2486,63 @@ function textToWordParas(text, rprXml) {
     .join('');
 }
 
-function replaceXmlText(xml, placeholder, replacement) {
-  if (replacement === null || replacement === undefined) return xml;
-  const repl = String(replacement);
-  const esc  = escXml(placeholder);
-
-  // STRATEGY A: For CONTENT placeholders (multi-paragraph sections)
-  // Find the exact simple paragraph pattern we know these use:
-  // <w:p><w:r><w:rPr>...</w:rPr><w:t ...>{{PLACEHOLDER}}</w:t></w:r></w:p>
-  const simpleParaPattern = new RegExp(
-    '<w:p><w:r><w:rPr>([\\s\\S]*?)</w:rPr><w:t[^>]*>' + escRegex(esc) + '</w:t></w:r></w:p>',
-    'g'
-  );
-  let matched = false;
-  const resultA = xml.replace(simpleParaPattern, (full, rprContent) => {
-    matched = true;
-    const rpr = `<w:rPr>${rprContent}</w:rPr>`;
-    return textToWordParas(repl, rpr) || `<w:p><w:r>${rpr}<w:t></w:t></w:r></w:p>`;
-  });
-  if (matched) return resultA;
-
-  // Also try without escaping (in case placeholder is stored unescaped)
-  const simpleParaPatternRaw = new RegExp(
-    '<w:p><w:r><w:rPr>([\\s\\S]*?)</w:rPr><w:t[^>]*>' + escRegex(placeholder) + '</w:t></w:r></w:p>',
-    'g'
-  );
-  const resultA2 = xml.replace(simpleParaPatternRaw, (full, rprContent) => {
-    matched = true;
-    const rpr = `<w:rPr>${rprContent}</w:rPr>`;
-    return textToWordParas(repl, rpr) || `<w:p><w:r>${rpr}<w:t></w:t></w:r></w:p>`;
-  });
-  if (matched) return resultA2;
-
-  // STRATEGY B: For METADATA placeholders (single values in complex table cells)
-  // Just replace the text content inside <w:t>...</w:t> directly
-  // This preserves all surrounding paragraph/table formatting intact
-  if (xml.includes(esc)) {
-    return xml.split(esc).join(escXml(repl));
-  }
-  if (xml.includes(placeholder)) {
-    return xml.split(placeholder).join(escXml(repl));
-  }
-
+// For METADATA: replace text inline — preserves surrounding paragraph/table formatting
+function replaceMeta(xml, placeholder, value) {
+  if (!value && value !== 0) return xml;
+  const val = String(value);
+  const esc = escXml(placeholder);
+  if (xml.includes(esc))         return xml.split(esc).join(escXml(val));
+  if (xml.includes(placeholder)) return xml.split(placeholder).join(escXml(val));
   return xml;
+}
+
+// For CONTENT: replace the entire containing <w:p> with proper paragraph XML
+// Used for multi-paragraph proposal sections ({{UNDERSTANDING}}, {{TECHNICAL_APPROACH}} etc.)
+function replaceContent(xml, placeholder, content) {
+  if (!content) return xml;
+  const repl = String(content);
+  const targets = [escXml(placeholder), placeholder];
+
+  for (const target of targets) {
+    if (!xml.includes(target)) continue;
+
+    const pattern = new RegExp(
+      '<w:p(?:[^>]*)>(?:(?!</w:p>)[\\s\\S])*?' +
+      escRegex(target) +
+      '(?:(?!</w:p>)[\\s\\S])*?</w:p>',
+      'g'
+    );
+
+    let found = false;
+    const result = xml.replace(pattern, (match) => {
+      found = true;
+      const rprM = match.match(/<w:rPr>([\s\S]*?)<\/w:rPr>/);
+      const rpr  = rprM ? `<w:rPr>${rprM[1]}</w:rPr>` : '<w:rPr><w:color w:val="000000"/></w:rPr>';
+      return textToWordParas(repl, rpr) || `<w:p><w:r><w:t></w:t></w:r></w:p>`;
+    });
+
+    if (found) return result;
+  }
+  return xml;
+}
+
+// Legacy alias — used in a few places
+function replaceXmlText(xml, placeholder, replacement) {
+  // Use content replacement (whole paragraph) for known content placeholders,
+  // inline replacement for everything else
+  const contentPlaceholders = ['{{UNDERSTANDING}}','{{TECHNICAL_APPROACH}}','{{METHODOLOGY}}',
+    '{{MANAGEMENT_APPROACH}}','{{STAFFING_PLAN}}','{{KEY_PERSONNEL_INTRO}}',
+    '{{PERSONNEL_ROWS}}','{{PRICING_PHILOSOPHY}}','{{BOE_NARRATIVE}}','{{WRAP_RATE}}',
+    '{{TOTAL_PRICE}}','{{COMPLIANCE}}','{{COVER_LETTER}}','{{CLEARANCE_PLAN}}',
+    '{{FACILITY_CLEARANCE}}','{{GFP}}','{{CMMC}}','{{FILL_INS}}','{{OCI_PLAN}}',
+    '{{REF_OVERVIEW}}','{{REF_SCOPE}}','{{REF_RELEVANCE}}','{{REF_SIMILARITY}}',
+    '{{PAYROLL_SECTION}}',
+  ];
+  const isContent = contentPlaceholders.includes(placeholder) ||
+    /REF\d+_(OVERVIEW|SCOPE|RELEVANCE|SIMILARITY)/.test(placeholder);
+  return isContent
+    ? replaceContent(xml, placeholder, replacement)
+    : replaceMeta(xml, placeholder, replacement);
 }
 
 // Inject only metadata placeholders — used for headers and footers
@@ -2571,20 +2587,19 @@ function injectContentIntoXml(xml, data, vol) {
     ['{{ADDRESS_LINE2}}',        (CLIENT_CONFIG.address||'').split(',').slice(1).join(',').trim()],
   ];
   for (const [ph, val] of meta) {
-    xml = replaceXmlText(xml, ph, val);
+    xml = replaceMeta(xml, ph, val);
   }
 
   const v = data[`volume${vol}`] || {};
 
   if (vol === '1') {
-    xml = replaceXmlText(xml, '{{UNDERSTANDING}}',        v.understanding_of_requirement || '');
-    xml = replaceXmlText(xml, '{{TECHNICAL_APPROACH}}',   v.technical_approach           || '');
-    xml = replaceXmlText(xml, '{{METHODOLOGY}}',          v.integrated_methodology       || '');
-    xml = replaceXmlText(xml, '{{MANAGEMENT_APPROACH}}',  v.management_approach || v.integrated_methodology || '');
-    xml = replaceXmlText(xml, '{{STAFFING_PLAN}}',        v.staffing_plan                || '');
-    xml = replaceXmlText(xml, '{{KEY_PERSONNEL_INTRO}}',  v.key_personnel_intro          || '');
-    // Personnel rows come from Claude's reading of actual resume documents
-    xml = replaceXmlText(xml, '{{PERSONNEL_ROWS}}',       v.personnel_rows               || '');
+    xml = replaceContent(xml, '{{UNDERSTANDING}}',        v.understanding_of_requirement || '');
+    xml = replaceContent(xml, '{{TECHNICAL_APPROACH}}',   v.technical_approach           || '');
+    xml = replaceContent(xml, '{{METHODOLOGY}}',          v.integrated_methodology       || '');
+    xml = replaceContent(xml, '{{MANAGEMENT_APPROACH}}',  v.management_approach || v.integrated_methodology || '');
+    xml = replaceContent(xml, '{{STAFFING_PLAN}}',        v.staffing_plan                || '');
+    xml = replaceContent(xml, '{{KEY_PERSONNEL_INTRO}}',  v.key_personnel_intro          || '');
+    xml = replaceContent(xml, '{{PERSONNEL_ROWS}}',       v.personnel_rows               || '');
   }
 
   if (vol === '2') {
@@ -2614,21 +2629,21 @@ function injectContentIntoXml(xml, data, vol) {
   }
 
   if (vol === '3') {
-    xml = replaceXmlText(xml, '{{PRICING_PHILOSOPHY}}',    v.pricing_philosophy    || '');
-    xml = replaceXmlText(xml, '{{BOE_NARRATIVE}}',         v.boe_narrative         || '');
-    xml = replaceXmlText(xml, '{{WRAP_RATE}}',             v.wrap_rate_narrative   || '');
-    xml = replaceXmlText(xml, '{{TOTAL_PRICE}}',           v.total_price_narrative || '');
-    xml = replaceXmlText(xml, '{{COMPLIANCE}}',            v.compliance_additional || '');
+    xml = replaceContent(xml, '{{PRICING_PHILOSOPHY}}',    v.pricing_philosophy    || '');
+    xml = replaceContent(xml, '{{BOE_NARRATIVE}}',         v.boe_narrative         || '');
+    xml = replaceContent(xml, '{{WRAP_RATE}}',             v.wrap_rate_narrative   || '');
+    xml = replaceContent(xml, '{{TOTAL_PRICE}}',           v.total_price_narrative || '');
+    xml = replaceContent(xml, '{{COMPLIANCE}}',            v.compliance_additional || '');
   }
 
   if (vol === '4') {
-    xml = replaceXmlText(xml, '{{COVER_LETTER}}',    v.cover_letter_additional     || '');
-    xml = replaceXmlText(xml, '{{FILL_INS}}',        (v.additional_fill_ins||[]).join('\n'));
-    xml = replaceXmlText(xml, '{{OCI_PLAN}}',        v.oci_plan || 'SRFed has conducted a thorough review and identified no known Organizational Conflicts of Interest (OCI) related to this requirement.');
-    xml = replaceXmlText(xml, '{{CLEARANCE_PLAN}}',  v.clearance_plan_additional   || '');
-    xml = replaceXmlText(xml, '{{FACILITY_CLEARANCE}}', `${CLIENT_CONFIG.companyFullName} maintains an Active SECRET Facility Clearance (FCL). UEI: ${CLIENT_CONFIG.uei} | CAGE: ${CLIENT_CONFIG.cage}`);
-    xml = replaceXmlText(xml, '{{GFP}}',             v.gfp                         || '');
-    xml = replaceXmlText(xml, '{{CMMC}}',            v.cmmc                        || '');
+    xml = replaceContent(xml, '{{COVER_LETTER}}',    v.cover_letter_additional     || '');
+    xml = replaceContent(xml, '{{FILL_INS}}',        (v.additional_fill_ins||[]).join('\n'));
+    xml = replaceContent(xml, '{{OCI_PLAN}}',        v.oci_plan || 'SRFed has conducted a thorough review and identified no known Organizational Conflicts of Interest (OCI) related to this requirement.');
+    xml = replaceContent(xml, '{{CLEARANCE_PLAN}}',  v.clearance_plan_additional   || '');
+    xml = replaceContent(xml, '{{FACILITY_CLEARANCE}}', `${CLIENT_CONFIG.companyFullName} maintains an Active SECRET Facility Clearance (FCL). UEI: ${CLIENT_CONFIG.uei} | CAGE: ${CLIENT_CONFIG.cage}`);
+    xml = replaceContent(xml, '{{GFP}}',             v.gfp                         || '');
+    xml = replaceContent(xml, '{{CMMC}}',            v.cmmc                        || '');
   }
 
   return xml;
