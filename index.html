@@ -1593,14 +1593,19 @@ function updateTokenMeter() {
   const level    = pct >= 85 ? 'danger' : pct >= 60 ? 'warn' : 'safe';
   const labels   = { safe: '✅ Well within limits', warn: '⚠️ Getting large — consider trimming', danger: '🔴 Very large bundle — trim if generation fails' };
 
+  const rfpTok = rfpFiles.reduce((s,f)=>s+estimateTokens(f),0);
+  const coTok  = companyFiles.reduce((s,f)=>s+estimateTokens(f),0);
+  const spFiles_count = companyFiles.filter(f=>f._fromSP).length;
+
   document.getElementById('tokenMeterCount').textContent  = `${totalK} / ${maxK} tokens`;
   document.getElementById('tokenMeterCount').className    = `token-meter-count ${level}`;
   const fill = document.getElementById('tokenBarFill');
   fill.style.width = pct + '%';
   fill.className   = `token-bar-fill ${level === 'safe' ? '' : level}`;
-  document.getElementById('tokenMeterSub').textContent = labels[level] +
-    ` · ${allFiles.length} file${allFiles.length > 1 ? 's' : ''}` +
-    (rfpFiles.length > 0 ? ` (${rfpFiles.length} RFP` + (companyFiles.length > 0 ? `, ${companyFiles.length} company)` : ')') : '');
+  let sub = labels[level];
+  sub += ` · ${rfpFiles.length} RFP file${rfpFiles.length !== 1 ? 's' : ''} (~${Math.round(rfpTok/1000)}k tokens)`;
+  if (coTok > 0) sub += ` · ${companyFiles.length} company file${companyFiles.length !== 1 ? 's' : ''} (~${Math.round(coTok/1000)}k tokens${spFiles_count > 0 ? `, ${spFiles_count} from SharePoint` : ''})`;
+  document.getElementById('tokenMeterSub').textContent = sub;
 }
 
 // Init both drop zones on load
@@ -1767,13 +1772,12 @@ async function runAnalysis() {
 
     msgContent.push({ type: 'text', text:
       `Analyze this government RFP/solicitation for ${CLIENT_CONFIG.companyShortName}.\n` +
-      `Return JSON with five arrays:\n\n` +
-      `"confirmed": up to 10 RFP items present but worth human verification (submission deadline/timezone, place of performance, FTE estimates, contract value, page limits, clearance level, evaluation factor weights, set-aside type, incumbent, unusual requirements). Each: {"id":"rfp_N","category":"rfp","label":"short label","value":"extracted value"}\n\n` +
-      `"clarify": up to 5 RFP items genuinely missing or unclear. Each: {"id":"q_N","category":"rfp","label":"short label","question":"specific question"}\n\n` +
-      `"company_confirmed": up to 8 items about the offeror worth confirming — e.g. which past performance references appear most relevant, which certifications apply, relevant clearance level. Each: {"id":"co_N","category":"company","label":"short label","value":"value"}\n\n` +
-      `"company_clarify": up to 3 questions the proposal team should consider. Each: {"id":"cq_N","category":"company","label":"short label","question":"specific question"}\n\n` +
-      `"shalls": extract every sentence or clause containing "shall", "must", "should", "will", or "required" as a contractor obligation. Return as array of strings. Include the full sentence with enough context to understand the requirement. Limit to 100 most important.\n\n` +
-      `Return ONLY JSON: {"confirmed":[...],"clarify":[...],"company_confirmed":[...],"company_clarify":[...],"shalls":["..."]}`
+      `Return JSON with EXACTLY these four arrays — nothing else:\n\n` +
+      `"confirmed": up to 10 RFP items present but worth human verification. Focus on: submission deadline/timezone, place of performance, FTE count, estimated contract value, page limits per volume, required clearance level, evaluation factor weights, set-aside type, incumbent contractor, any unusual or atypical requirements. Each: {"id":"rfp_N","category":"rfp","label":"short label","value":"extracted value"}\n\n` +
+      `"clarify": up to 5 items genuinely missing or unclear in the RFP that the proposal team needs to address. Each: {"id":"q_N","category":"rfp","label":"short label","question":"specific question"}\n\n` +
+      `"company_confirmed": up to 6 company-side items worth confirming — most relevant past performance references, key certifications, applicable clearance levels. Each: {"id":"co_N","category":"company","label":"short label","value":"value"}\n\n` +
+      `"company_clarify": up to 3 company-side questions. Each: {"id":"cq_N","category":"company","label":"short label","question":"question"}\n\n` +
+      `Return ONLY compact JSON with no whitespace: {"confirmed":[...],"clarify":[...],"company_confirmed":[...],"company_clarify":[...]}`
     });
 
     setProgress(40, []);
@@ -1782,22 +1786,60 @@ async function runAnalysis() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey,
         'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 4000,
+      body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 2000,
         messages: [{ role: 'user', content: msgContent }] })
     });
 
-    if (!resp.ok) throw new Error(`API error ${resp.status}: ${await resp.text()}`);
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error(`API error ${resp.status}: ${errText}`);
+    }
     const data = await resp.json();
     let raw = data.content.map(c => c.text||'').join('').trim()
       .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
-    let parsed = { confirmed: [], clarify: [], company_confirmed: [], company_clarify: [], shalls: [] };
-    try { parsed = JSON.parse(raw); } catch(e) { console.warn('Analysis parse failed:', e.message); }
+
+    // Repair truncated JSON before parsing
+    if (!raw.endsWith('}')) {
+      const lb = raw.lastIndexOf('}');
+      if (lb > 0) {
+        raw = raw.substring(0, lb + 1);
+        const ob = (raw.match(/\[/g)||[]).length - (raw.match(/\]/g)||[]).length;
+        for (let i = 0; i < ob; i++) raw += ']';
+        raw += '}';
+      }
+    }
+
+    let parsed = { confirmed: [], clarify: [], company_confirmed: [], company_clarify: [] };
+    try {
+      parsed = JSON.parse(raw);
+    } catch(e) {
+      // Try to extract arrays individually
+      console.warn('Full parse failed, attempting partial extraction:', e.message);
+      const extract = (key) => {
+        const m = raw.match(new RegExp('"' + key + '"\\s*:\\s*(\\[[\\s\\S]*?\\])(?=[,}])'));
+        if (!m) return [];
+        try { return JSON.parse(m[1]); } catch(_) { return []; }
+      };
+      parsed = {
+        confirmed:        extract('confirmed'),
+        clarify:          extract('clarify'),
+        company_confirmed: extract('company_confirmed'),
+        company_clarify:  extract('company_clarify'),
+      };
+      if (parsed.confirmed.length === 0 && parsed.clarify.length === 0) {
+        console.warn('Raw response:', raw.substring(0, 500));
+        showStatus('warn', 'Analysis returned no items',
+          'The API response could not be parsed. This usually means the response was truncated. ' +
+          'Try again — if it persists, your document bundle may be too large for a single analysis call.');
+      }
+    }
 
     setProgress(80, []);
 
-    // Populate shalls section from Claude's extraction
-    if (parsed.shalls && parsed.shalls.length > 0) {
-      populateShallsFromAnalysis(parsed.shalls.join('\n'));
+    // Shalls: make a SEPARATE smaller call so it doesn't truncate the main response
+    // Run it async in background — don't block the assumption display
+    if (rfpFiles.length > 0) {
+      extractShallsViaApi(msgContent.slice(0, -1), apiKey); // pass docs without the prompt
     }
 
     // Company-side assumptions: prefer what Claude found in SP documents.
@@ -1898,6 +1940,41 @@ function renderClarifyingQuestions(panelId, items) {
         oninput="updateClarifyAnswer('${q.id}', this.value)"/>
       <div class="clarify-hint">Leave blank to proceed without it.</div>
     </div>`).join('');
+}
+
+async function extractShallsViaApi(docContent, apiKey) {
+  try {
+    const content = [...docContent, { type: 'text', text:
+      `Extract every sentence or clause from these documents that contains a contractor obligation — specifically sentences with "shall", "must", "should", "will", or "required to".\n` +
+      `Return ONLY a JSON array of strings — the full sentences with enough context to understand each requirement.\n` +
+      `Limit to the 80 most important unique requirements.\n` +
+      `Example: ["The contractor shall provide weekly status reports to the COR.", "All personnel must hold a minimum SECRET clearance."]\n` +
+      `Return ONLY: ["sentence1","sentence2",...]`
+    }];
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 4000,
+        messages: [{ role: 'user', content }] })
+    });
+    if (!resp.ok) return;
+    const d = await resp.json();
+    let raw = d.content.map(c=>c.text||'').join('').trim()
+      .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
+    // Repair truncated array
+    if (!raw.endsWith(']')) {
+      const lb = raw.lastIndexOf('"');
+      if (lb > 0) raw = raw.substring(0, lb+1) + ']';
+    }
+    try {
+      const shalls = JSON.parse(raw);
+      if (Array.isArray(shalls) && shalls.length > 0) {
+        populateShallsFromAnalysis(shalls.join('\n'));
+      }
+    } catch(e) { console.warn('Shalls parse failed:', e.message); }
+  } catch(e) { console.warn('Shalls extraction failed:', e.message); }
 }
 
 function toggleShalls() {
