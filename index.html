@@ -407,7 +407,7 @@
   }
   .assumption-scroll-panel {
     max-height: 600px;
-    overflow-y: scroll;  /* scroll instead of auto forces scroll context */
+    overflow-y: scroll;
     padding-right: 4px;
     overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
@@ -643,12 +643,12 @@
     <div class="card-header"><span class="icon">📁</span> Step 4: Drop Documents</div>
     <div class="card-body">
       <div class="lock-msg"><span class="lock-icon">🔒</span><span class="lock-text">Complete steps 1 &amp; 2 to unlock</span></div>
-      <div class="two-col" style="gap:20px;min-width:0">
+      <div class="two-col" style="gap:20px;min-width:0;align-items:start">
 
         <!-- Left: RFP / PWS documents -->
         <div style="min-width:0;overflow:hidden">
-          <div class="section-label">📄 RFP / PWS / Solicitation Documents</div>
-          <div class="drop-zone" id="dropZoneRFP">
+          <div class="section-label" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📄 RFP / PWS / Solicitation Documents</div>
+          <div class="drop-zone" id="dropZoneRFP" style="min-height:140px">
             <input type="file" id="fileInputRFP" multiple accept=".pdf,.docx,.doc,.xlsx,.xls"/>
             <div class="dz-icon">📂</div>
             <div class="dz-title">Drop RFP Files Here</div>
@@ -659,8 +659,8 @@
 
         <!-- Right: Company / past performance documents -->
         <div style="min-width:0;overflow:hidden">
-          <div class="section-label">🏢 Additional Company Documents <span style="font-weight:400;color:var(--muted)">(supplements SharePoint — optional)</span></div>
-          <div class="drop-zone" id="dropZoneCompany">
+          <div class="section-label" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🏢 Additional Company Documents <span style="font-weight:400;color:var(--muted)">(optional)</span></div>
+          <div class="drop-zone" id="dropZoneCompany" style="min-height:140px">
             <input type="file" id="fileInputCompany" multiple accept=".pdf,.docx,.doc,.xlsx,.xls"/>
             <div class="dz-icon">🏢</div>
             <div class="dz-title">Drop Company Files Here</div>
@@ -1054,7 +1054,20 @@ function renderMsState() {
 }
 
 // Initialize on load
-window.addEventListener('load', () => { applyClientConfig(); initMsal(); });
+// Scroll containment for assumption panels — prevent scroll bleeding to page
+function initScrollContainment() {
+  document.addEventListener('wheel', function(e) {
+    const panel = e.target.closest('.assumption-scroll-panel');
+    if (!panel) return;
+    const atTop    = panel.scrollTop === 0;
+    const atBottom = panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 1;
+    if ((e.deltaY < 0 && atTop) || (e.deltaY > 0 && atBottom)) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+}
+
+window.addEventListener('load', () => { applyClientConfig(); initMsal(); initScrollContainment(); });
 
 // ─── API KEY MANAGEMENT ───────────────────────────────────────────────────────
 function saveApiKey(value) {
@@ -1163,10 +1176,28 @@ function fileToBase64(file) {
 }
 
 function getMimeType(file) {
-  if (file.name.endsWith('.pdf')) return 'application/pdf';
-  if (file.name.match(/\.docx?$/)) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-  if (file.name.match(/\.xlsx?$/)) return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  const n = file.name.toLowerCase();
+  if (n.endsWith('.pdf'))                    return 'application/pdf';
+  if (n.match(/\.docx?$/))                  return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  if (n.match(/\.xlsx?$/))                  return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  if (n.match(/\.(csv|tsv)$/))              return 'text/csv';
+  if (n.match(/\.(txt|md|markdown)$/))      return 'text/plain';
   return 'application/octet-stream';
+}
+
+// Build a Claude API content block for any supported file type
+// Returns null if file type is not supported by the API
+async function fileToContentBlock(file) {
+  const mime = getMimeType(file);
+  const supportedTypes = [
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/csv', 'text/plain', 'text/html', 'text/markdown',
+  ];
+  if (!supportedTypes.includes(mime)) return null;
+  const b64 = await fileToBase64(file);
+  return { type: 'document', source: { type: 'base64', media_type: mime, data: b64 } };
 }
 
 function buildAcceptedAssumptionsContext() {
@@ -1531,12 +1562,16 @@ function initDropZone(zoneId, inputId, fileArray, listId) {
 }
 
 function addFilesToArray(newFiles, arr, listId) {
-  newFiles.forEach(f => { if (!arr.find(x => x.name === f.name)) arr.push(f); });
+  let added = 0;
+  newFiles.forEach(f => {
+    if (!arr.find(x => x.name === f.name)) { arr.push(f); added++; }
+  });
   renderFileListById(arr, listId);
   updateStepLocks();
+  updateTokenMeter(); // always force refresh
   if (arr === rfpFiles) extractAndDisplayShalls();
   // Reset analysis if files change
-  if (analysisComplete) {
+  if (analysisComplete && added > 0) {
     analysisComplete = false;
     assumptions = [];
     document.getElementById('analysisResults').style.display = 'none';
@@ -1763,11 +1798,9 @@ async function runAnalysis() {
 
     const msgContent = [];
     for (const file of rfpFiles.slice(0, 10)) {
-      const b64 = await fileToBase64(file);
-      if (getMimeType(file) === 'application/pdf')
-        msgContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } });
-      else
-        msgContent.push({ type: 'text', text: `[RFP Document: ${file.name}]` });
+      const block = await fileToContentBlock(file);
+      if (block) msgContent.push(block);
+      else msgContent.push({ type: 'text', text: `[Unsupported file: ${file.name}]` });
     }
     // Note: company documents are NOT sent during analysis to conserve tokens.
     // Company-side assumptions come from CLIENT_CONFIG fallback or are surfaced
@@ -1842,6 +1875,22 @@ async function runAnalysis() {
     // Shalls: make a SEPARATE smaller call so it doesn't truncate the main response
     // Run it async in background — don't block the assumption display
     if (rfpFiles.length > 0) {
+      // Show loading state in shalls panel
+      const shallsSection = document.getElementById('shallsSection');
+      const shallsBody    = document.getElementById('shallsBody');
+      const shallsCount   = document.getElementById('shallsCount');
+      if (shallsSection) {
+        shallsSection.style.display = 'block';
+        if (shallsCount) shallsCount.textContent = 'Extracting…';
+        if (shallsBody) {
+          shallsBody.style.display = 'block';
+          shallsBody.innerHTML = `<div style="font-size:13px;color:var(--muted);padding:8px 0">
+            <span class="spinner" style="width:12px;height:12px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:8px"></span>
+            Extracting requirements from your RFP documents…
+          </div>`;
+          document.getElementById('shallsToggleIcon').textContent = '▲';
+        }
+      }
       extractShallsViaApi(msgContent.slice(0, -1), apiKey); // pass docs without the prompt
     }
 
@@ -2030,8 +2079,6 @@ async function extractAndDisplayShalls() {
     document.getElementById('shallsToggleIcon').textContent = '▲';
     return;
   }
-
-  count.textContent = `${sentences.length} requirement${sentences.length !== 1 ? 's' : ''} found`;
   if (sentences.length > 0) {
     body.innerHTML = sentences.map(s => {
       const highlighted = s.text.replace(
@@ -2158,15 +2205,37 @@ async function runGeneration() {
       `\nNOTES FROM PROPOSAL MANAGER: ${notes || 'None'}\n` +
       assumptionsCtx + clarifyCtx;
 
-    // ── CALL 1: Send all documents → extract briefing ─────────────────────────
+    // ── CALL 1: Send documents → extract briefing ────────────────────────────
+    // Cap total to prevent request body from being too large (browser fetch limit ~20MB)
+    // Prioritize RFP files, then add company files up to token budget
+    const TOKEN_BUDGET = 200000;
     const docContent = [];
-    for (const file of [...rfpFiles.slice(0, 10), ...companyFiles.slice(0, 5)]) {
-      const b64 = await fileToBase64(file);
-      if (getMimeType(file) === 'application/pdf')
-        docContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } });
-      else
-        docContent.push({ type: 'text', text: `[Document: ${file.name}]` });
+    let tokensSent = 0;
+
+    for (const file of rfpFiles.slice(0, 10)) {
+      const est = estimateTokens(file);
+      if (tokensSent + est > TOKEN_BUDGET) break;
+      const block = await fileToContentBlock(file);
+      if (block) docContent.push(block);
+      else docContent.push({ type: 'text', text: `[Unsupported file: ${file.name}]\n` });
+      tokensSent += est;
     }
+
+    // Sort company files by size (smallest first) to fit more within budget
+    const sortedCompany = [...companyFiles].sort((a,b) => a.size - b.size);
+    for (const file of sortedCompany.slice(0, 8)) {
+      const est = estimateTokens(file);
+      if (tokensSent + est > TOKEN_BUDGET) continue; // skip oversized, try next
+      const coBlock = await fileToContentBlock(file);
+      if (coBlock) docContent.push(coBlock);
+      else docContent.push({ type: 'text', text: `[Unsupported file: ${file.name}]\n` });
+      tokensSent += est;
+    }
+
+    const skippedFiles = rfpFiles.length + companyFiles.length - docContent.length;
+    showStatus('info', 'Reading documents...',
+      `Sending ${docContent.length} file${docContent.length>1?'s':''} (~${Math.round(tokensSent/1000)}k tokens) to AI.` +
+      (skippedFiles > 0 ? ` ${skippedFiles} file(s) skipped to stay within limits.` : ''), true);
 
     docContent.push({ type: 'text', text:
       `You are an expert government proposal writer for ${CLIENT_CONFIG.companyFullName}.\n\n` +
@@ -2179,13 +2248,25 @@ async function runGeneration() {
     setProgress(10, allSteps);
     showStatus('info', 'Reading documents...', 'Extracting all requirements and metadata from your RFP bundle.', true);
 
-    const briefResp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 4000,
-        messages: [{ role: 'user', content: docContent }] })
-    });
+    const briefController = new AbortController();
+    const briefTimeout = setTimeout(() => briefController.abort(), 180000); // 3 min for briefing
+    let briefResp;
+    try {
+      briefResp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        signal: briefController.signal,
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+        body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 4000,
+          messages: [{ role: 'user', content: docContent }] })
+      });
+      clearTimeout(briefTimeout);
+    } catch(e) {
+      clearTimeout(briefTimeout);
+      if (e.name === 'AbortError')
+        throw new Error('Document reading timed out after 3 minutes. Your document bundle may be too large — try removing the largest files and running again.');
+      throw new Error(`Failed to connect to API: ${e.message}. Check your internet connection and try again.`);
+    }
 
     if (!briefResp.ok) throw new Error(`Document reading failed (${briefResp.status}): ${await briefResp.text()}`);
     const briefData = await briefResp.json();
@@ -2227,25 +2308,53 @@ async function runGeneration() {
       `Risks: ${(briefing.risks||[]).join('; ')}\n` +
       `Notes: ${briefing.notes || ''}\n\n` + companyCtx;
 
-    // Helper: make a single API call for one section
+    // Helper: make a single API call for one section, with timeout
     async function writeSection(sectionPrompt, maxTok) {
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: maxTok || 8000,
-          messages: [{ role: 'user', content: [
-            { type: 'text', text: briefingText },
-            { type: 'text', text: sectionPrompt }
-          ]}]})
-      });
-      if (!resp.ok) throw new Error(`API error ${resp.status}: ${await resp.text()}`);
-      const d = await resp.json();
-      let raw = d.content.map(c=>c.text||'').join('').trim()
-        .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
-      if (!raw.endsWith('}')) { const lb=raw.lastIndexOf('}'); if(lb>0){raw=raw.substring(0,lb+1); const ob=(raw.match(/\[/g)||[]).length-(raw.match(/\]/g)||[]).length; for(let j=0;j<ob;j++) raw+=']'; raw+='}'; } }
-      try { return JSON.parse(raw); }
-      catch(e) { const m=raw.match(/\{[\s\S]+\}/); return m ? JSON.parse(m[0]) : {}; }
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 120000); // 2 min timeout
+      try {
+        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          signal: controller.signal,
+          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+          body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: maxTok || 8000,
+            messages: [{ role: 'user', content: [
+              { type: 'text', text: briefingText },
+              { type: 'text', text: sectionPrompt }
+            ]}]})
+        });
+        clearTimeout(timeout);
+        if (!resp.ok) {
+          const errBody = await resp.text().catch(() => '');
+          throw new Error(`API error ${resp.status}: ${errBody.substring(0, 200)}`);
+        }
+        const d = await resp.json();
+        let raw = d.content.map(c=>c.text||'').join('').trim()
+          .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
+        // JSON repair for truncated responses
+        if (!raw.endsWith('}')) {
+          const lb=raw.lastIndexOf('}');
+          if(lb>0) {
+            raw=raw.substring(0,lb+1);
+            const ob=(raw.match(/\[/g)||[]).length-(raw.match(/\]/g)||[]).length;
+            for(let j=0;j<ob;j++) raw+=']';
+            raw+='}';
+          }
+        }
+        try { return JSON.parse(raw); }
+        catch(e) {
+          console.warn('Section JSON parse failed, attempting extraction:', e.message);
+          const m=raw.match(/\{[\s\S]+\}/);
+          if (m) try { return JSON.parse(m[0]); } catch(_) {}
+          console.error('Raw response:', raw.substring(0, 500));
+          return {};
+        }
+      } catch(e) {
+        clearTimeout(timeout);
+        if (e.name === 'AbortError') throw new Error('API call timed out after 2 minutes. Your document bundle may be too large, or the API is overloaded. Try again.');
+        throw e;
+      }
     }
 
     const totalVols = genVols.length;
@@ -2488,8 +2597,7 @@ function textToWordParas(text, rprXml) {
 
 // For METADATA: replace text inline — preserves surrounding paragraph/table formatting
 function replaceMeta(xml, placeholder, value) {
-  if (!value && value !== 0) return xml;
-  const val = String(value);
+  const val = (value === null || value === undefined) ? '' : String(value);
   const esc = escXml(placeholder);
   if (xml.includes(esc))         return xml.split(esc).join(escXml(val));
   if (xml.includes(placeholder)) return xml.split(placeholder).join(escXml(val));
@@ -2497,10 +2605,8 @@ function replaceMeta(xml, placeholder, value) {
 }
 
 // For CONTENT: replace the entire containing <w:p> with proper paragraph XML
-// Used for multi-paragraph proposal sections ({{UNDERSTANDING}}, {{TECHNICAL_APPROACH}} etc.)
 function replaceContent(xml, placeholder, content) {
-  if (!content) return xml;
-  const repl = String(content);
+  const repl = (content === null || content === undefined) ? '' : String(content);
   const targets = [escXml(placeholder), placeholder];
 
   for (const target of targets) {
@@ -2518,7 +2624,8 @@ function replaceContent(xml, placeholder, content) {
       found = true;
       const rprM = match.match(/<w:rPr>([\s\S]*?)<\/w:rPr>/);
       const rpr  = rprM ? `<w:rPr>${rprM[1]}</w:rPr>` : '<w:rPr><w:color w:val="000000"/></w:rPr>';
-      return textToWordParas(repl, rpr) || `<w:p><w:r><w:t></w:t></w:r></w:p>`;
+      if (!repl.trim()) return '';  // empty content = remove paragraph entirely
+      return textToWordParas(repl, rpr);
     });
 
     if (found) return result;
@@ -2563,14 +2670,24 @@ function injectMetaOnly(xml, data) {
 }
 
 function injectContentIntoXml(xml, data, vol) {
-  // Replace common metadata placeholders first
+  // Replace common metadata placeholders first (inline replacement)
+  const addr = CLIENT_CONFIG.address || '';
+  // Parse address: "3168 Braverton Street, Suite 400, Edgewater, MD 21037"
+  // Line 1 = street + suite, Line 2 = city state zip
+  const addrParts = addr.split(',').map(s => s.trim());
+  const addrLine1 = addrParts.length >= 3 ? addrParts.slice(0, -2).join(', ') : addrParts[0] || '';
+  const addrLine2 = addrParts.length >= 3 ? addrParts.slice(-2).join(', ') : addrParts.slice(1).join(', ');
+
+  const agencyAddr = data.agency_address || '';
+  const agencyParts = agencyAddr.split('\n').length > 1 ? agencyAddr.split('\n') : agencyAddr.split(',').map(s=>s.trim());
+
   const meta = [
     ['{{SOLICITATION_NUMBER}}',  data.solicitation_number   || ''],
     ['{{REQUIREMENT_TITLE}}',    data.requirement_title     || ''],
     ['{{AGENCY_NAME}}',          data.agency_name           || ''],
     ['{{AGENCY_ADDRESS}}',       data.agency_address        || ''],
-    ['{{AGENCY_ADDRESS_LINE1}}', (data.agency_address||'').split(/\n|,/)[0].trim() || data.agency_address || ''],
-    ['{{AGENCY_ADDRESS_LINE2}}', (data.agency_address||'').split(/\n/).slice(1).join(', ').trim() || ''],
+    ['{{AGENCY_ADDRESS_LINE1}}', agencyParts[0]             || ''],
+    ['{{AGENCY_ADDRESS_LINE2}}', agencyParts.slice(1).join(', ').trim() || ''],
     ['{{AGENCY_POC}}',           data.agency_poc            || ''],
     ['{{AGENCY_POC_EMAIL}}',     data.agency_poc_email      || ''],
     ['{{AGENCY_POC_PHONE}}',     data.agency_poc_phone      || ''],
@@ -2583,8 +2700,8 @@ function injectContentIntoXml(xml, data, vol) {
     ['{{CEO_TITLE}}',            CLIENT_CONFIG.ceoTitle     || ''],
     ['{{CEO_EMAIL}}',            CLIENT_CONFIG.ceoEmail     || ''],
     ['{{CEO_PHONE}}',            CLIENT_CONFIG.ceoPhone     || ''],
-    ['{{ADDRESS_LINE1}}',        (CLIENT_CONFIG.address||'').split(',')[0].trim()],
-    ['{{ADDRESS_LINE2}}',        (CLIENT_CONFIG.address||'').split(',').slice(1).join(',').trim()],
+    ['{{ADDRESS_LINE1}}',        addrLine1],
+    ['{{ADDRESS_LINE2}}',        addrLine2],
   ];
   for (const [ph, val] of meta) {
     xml = replaceMeta(xml, ph, val);
@@ -2596,54 +2713,50 @@ function injectContentIntoXml(xml, data, vol) {
     xml = replaceContent(xml, '{{UNDERSTANDING}}',        v.understanding_of_requirement || '');
     xml = replaceContent(xml, '{{TECHNICAL_APPROACH}}',   v.technical_approach           || '');
     xml = replaceContent(xml, '{{METHODOLOGY}}',          v.integrated_methodology       || '');
-    xml = replaceContent(xml, '{{MANAGEMENT_APPROACH}}',  v.management_approach || v.integrated_methodology || '');
+    xml = replaceContent(xml, '{{MANAGEMENT_APPROACH}}',  v.management_approach          || '');
     xml = replaceContent(xml, '{{STAFFING_PLAN}}',        v.staffing_plan                || '');
     xml = replaceContent(xml, '{{KEY_PERSONNEL_INTRO}}',  v.key_personnel_intro          || '');
-    xml = replaceContent(xml, '{{PERSONNEL_ROWS}}',       v.personnel_rows               || '');
   }
 
   if (vol === '2') {
     const refs = v.references || [];
-    const refBlocks = refs.map((r, i) => [
-      [`{{REF${i+1}_PROGRAM}}`,     r.program_name           || ''],
-      [`{{REF${i+1}_CONTRACT}}`,    r.contract_number        || ''],
-      [`{{REF${i+1}_PM_NAME}}`,     r.pm_name                || ''],
-      [`{{REF${i+1}_PM_PHONE}}`,    r.pm_phone               || ''],
-      [`{{REF${i+1}_PM_EMAIL}}`,    r.pm_email               || ''],
-      [`{{REF${i+1}_CO_NAME}}`,     r.co_name                || ''],
-      [`{{REF${i+1}_CO_PHONE}}`,    r.co_phone               || ''],
-      [`{{REF${i+1}_CO_EMAIL}}`,    r.co_email               || ''],
-      [`{{REF${i+1}_COR_NAME}}`,    r.cor_name               || ''],
-      [`{{REF${i+1}_COR_PHONE}}`,   r.cor_phone              || ''],
-      [`{{REF${i+1}_COR_EMAIL}}`,   r.cor_email              || ''],
-      [`{{REF${i+1}_TYPE}}`,        r.contract_type          || ''],
-      [`{{REF${i+1}_PERIOD}}`,      r.period_of_performance  || ''],
-      [`{{REF${i+1}_VALUE}}`,       r.total_value            || ''],
-      [`{{REF${i+1}_PRIME_SUB}}`,   r.prime_or_sub           || ''],
-      [`{{REF${i+1}_OVERVIEW}}`,    r.overview               || ''],
-      [`{{REF${i+1}_SCOPE}}`,       r.scope                  || ''],
-      [`{{REF${i+1}_RELEVANCE}}`,   r.relevance              || ''],
-      [`{{REF${i+1}_SIMILARITY}}`,  r.similarity             || ''],
-    ]).flat();
-    for (const [ph, val] of refBlocks) xml = replaceXmlText(xml, ph, val);
+    for (let i = 0; i < 3; i++) {
+      const r = refs[i] || {};
+      const n = i + 1;
+      // Contact info — inline metadata replacement
+      for (const [suffix, field] of [
+        ['PROGRAM', 'program_name'], ['CONTRACT', 'contract_number'],
+        ['TYPE', 'contract_type'], ['PERIOD', 'period_of_performance'],
+        ['VALUE', 'total_value'], ['PRIME_SUB', 'prime_or_sub'],
+        ['PM_NAME', 'pm_name'], ['PM_PHONE', 'pm_phone'], ['PM_EMAIL', 'pm_email'],
+        ['CO_NAME', 'co_name'], ['CO_PHONE', 'co_phone'], ['CO_EMAIL', 'co_email'],
+        ['COR_NAME', 'cor_name'], ['COR_PHONE', 'cor_phone'], ['COR_EMAIL', 'cor_email'],
+      ]) {
+        xml = replaceMeta(xml, `{{REF${n}_${suffix}}}`, r[field] || '');
+      }
+      // Narrative fields — full paragraph replacement
+      xml = replaceContent(xml, `{{REF${n}_OVERVIEW}}`,    r.overview    || '');
+      xml = replaceContent(xml, `{{REF${n}_RELEVANCE}}`,   r.relevance   || '');
+      xml = replaceContent(xml, `{{REF${n}_SIMILARITY}}`,  r.similarity  || '');
+    }
   }
 
   if (vol === '3') {
-    xml = replaceContent(xml, '{{PRICING_PHILOSOPHY}}',    v.pricing_philosophy    || '');
-    xml = replaceContent(xml, '{{BOE_NARRATIVE}}',         v.boe_narrative         || '');
-    xml = replaceContent(xml, '{{WRAP_RATE}}',             v.wrap_rate_narrative   || '');
-    xml = replaceContent(xml, '{{TOTAL_PRICE}}',           v.total_price_narrative || '');
-    xml = replaceContent(xml, '{{COMPLIANCE}}',            v.compliance_additional || '');
+    xml = replaceContent(xml, '{{PRICING_PHILOSOPHY}}',    v.pricing_philosophy       || '');
+    xml = replaceContent(xml, '{{BOE_NARRATIVE}}',         v.boe_narrative            || '');
+    xml = replaceContent(xml, '{{WRAP_RATE}}',             v.wrap_rate_narrative      || '');
+    xml = replaceContent(xml, '{{TOTAL_PRICE}}',           v.total_price_narrative    || '');
+    xml = replaceContent(xml, '{{COMPLIANCE}}',            v.compliance_additional    || '');
   }
 
   if (vol === '4') {
-    xml = replaceContent(xml, '{{COVER_LETTER}}',    v.cover_letter_additional     || '');
-    xml = replaceContent(xml, '{{FILL_INS}}',        (v.additional_fill_ins||[]).join('\n'));
-    xml = replaceContent(xml, '{{OCI_PLAN}}',        v.oci_plan || 'SRFed has conducted a thorough review and identified no known Organizational Conflicts of Interest (OCI) related to this requirement.');
-    xml = replaceContent(xml, '{{CLEARANCE_PLAN}}',  v.clearance_plan_additional   || '');
-    xml = replaceContent(xml, '{{FACILITY_CLEARANCE}}', `${CLIENT_CONFIG.companyFullName} maintains an Active SECRET Facility Clearance (FCL). UEI: ${CLIENT_CONFIG.uei} | CAGE: ${CLIENT_CONFIG.cage}`);
-    xml = replaceContent(xml, '{{GFP}}',             v.gfp                         || '');
-    xml = replaceContent(xml, '{{CMMC}}',            v.cmmc                        || '');
+    xml = replaceContent(xml, '{{COVER_LETTER}}',         v.cover_letter_additional  || '');
+    xml = replaceContent(xml, '{{FILL_INS}}',             (v.additional_fill_ins||[]).join('\n'));
+    xml = replaceContent(xml, '{{OCI_PLAN}}',             v.oci_plan                 || `${CLIENT_CONFIG.companyFullName} has conducted a thorough review and identified no known Organizational Conflicts of Interest related to this requirement.`);
+    xml = replaceContent(xml, '{{CLEARANCE_PLAN}}',       v.clearance_plan_additional || '');
+    xml = replaceContent(xml, '{{FACILITY_CLEARANCE}}',   `${CLIENT_CONFIG.companyFullName} maintains an Active SECRET Facility Clearance (FCL). UEI: ${CLIENT_CONFIG.uei} | CAGE: ${CLIENT_CONFIG.cage}`);
+    xml = replaceContent(xml, '{{GFP}}',                  v.gfp                      || '');
+    xml = replaceContent(xml, '{{CMMC}}',                 v.cmmc                     || '');
   }
 
   return xml;
