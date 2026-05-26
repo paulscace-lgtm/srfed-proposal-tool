@@ -2528,6 +2528,11 @@ async function runGeneration() {
         (briefing.solicitation_number || 'Draft')).replace(/[^a-zA-Z0-9_]/g, '_'),
     };
 
+    // Get the extracted compliance requirements from the shalls panel
+    const shallsBody = document.getElementById('shallsBody');
+    const shallsItems = shallsBody ? shallsBody.querySelectorAll('.shall-item') : [];
+    const shallsList = Array.from(shallsItems).map(el => el.textContent.trim()).filter(r => r.length > 10);
+
     const briefingText =
       `VERIFIED PROPOSAL BRIEFING (extracted from RFP documents):\n` +
       `Sol: ${briefing.solicitation_number} | ${briefing.requirement_title}\n` +
@@ -2542,12 +2547,18 @@ async function runGeneration() {
       `Technical Themes: ${(briefing.technical_themes||[]).join('; ')}\n` +
       `Relevant Past Perf: ${(briefing.relevant_past_perf||[]).join('; ')}\n` +
       `Risks: ${(briefing.risks||[]).join('; ')}\n` +
-      `Notes: ${briefing.notes || ''}\n\n` + companyCtx;
+      `Notes: ${briefing.notes || ''}\n\n` +
+      (shallsList.length > 0
+        ? `COMPLIANCE REQUIREMENTS — ALL SHALL/MUST/SHOULD ITEMS FROM THE RFP (${shallsList.length} total):\n` +
+          `CRITICAL: Every proposal volume MUST explicitly address each of these requirements. Do not omit any.\n` +
+          shallsList.map((r,i) => `${i+1}. ${r}`).join('\n') + '\n\n'
+        : '') +
+      companyCtx;
 
     // Helper: make a single API call for one section, with timeout
     async function writeSection(sectionPrompt, maxTok) {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 120000); // 2 min timeout
+      const timeout = setTimeout(() => controller.abort(), 300000); // 5 min timeout per section
       try {
         const resp = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
@@ -2610,6 +2621,8 @@ async function runGeneration() {
           `You are writing the TECHNICAL APPROACH section of a government proposal for ${CLIENT_CONFIG.companyShortName}.\n\n` +
           `Write deeply specific, compliance-focused content that directly addresses every PWS task area and every evaluator requirement. ` +
           `This must be proposal-ready prose, not a summary. Write as if submitting to the government today.\n\n` +
+          `IMPORTANT: The briefing above contains a numbered list of ALL compliance requirements (shall/must/should). ` +
+          `Your technical approach must demonstrate how ${CLIENT_CONFIG.companyShortName} will satisfy each relevant technical and performance requirement from that list.\n\n` +
           `Return ONLY JSON:\n{"understanding_of_requirement": "MINIMUM 4 substantial paragraphs. Show deep understanding of the agency mission, the specific requirement, the operational environment, and why this matters. Reference specific details from the PWS/RFP. Use the agency's own language back to them.", "technical_approach": "MINIMUM 6 substantial paragraphs. Address EVERY PWS task area by its exact name and number. For each task area: explain specifically how ${CLIENT_CONFIG.companyShortName} will perform it, what tools/methodologies/systems will be used, what deliverables will result, and how success will be measured. Be specific to THIS requirement, not generic."}`,
           8000
         );
@@ -2651,7 +2664,7 @@ async function runGeneration() {
 
         // Make this call directly (not via writeSection which only uses briefingText)
         const vol2Controller = new AbortController();
-        const vol2Timeout = setTimeout(() => vol2Controller.abort(), 180000);
+        const vol2Timeout = setTimeout(() => vol2Controller.abort(), 360000); // 6 min for Vol II
         try {
           const vol2Resp = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST', signal: vol2Controller.signal,
@@ -2695,11 +2708,18 @@ async function runGeneration() {
 
         volData = await writeSection(
           `You are writing the CONTRACT DOCUMENTATION volume of a government proposal for ${CLIENT_CONFIG.companyShortName}.\n\n` +
-          `Return ONLY JSON:\n{"cover_letter_additional":"MINIMUM 3 paragraphs for the cover letter body: (1) formal acknowledgment of this specific solicitation by number and title, (2) statement of ${CLIENT_CONFIG.companyShortName}'s qualifications, SDVOSB status, and commitment to the mission, (3) key differentiators and why SRFed is the best value solution.",` +
-          `"additional_fill_ins":["List every specific certification, representation, or fill-in required by this solicitation including FAR clauses, SAM registration, CAGE/UEI, small business certifications, and any agency-specific forms"],` +
-          `"clearance_plan_additional":"MINIMUM 2 paragraphs on the clearance plan: current facility clearance level, plan for obtaining required personnel clearances, timeline, and backup plan for clearance delays.",` +
-          `"gfp":"MINIMUM 2 paragraphs: acknowledgment of any Government Furnished Property or Equipment listed in the PWS, ${CLIENT_CONFIG.companyShortName}'s approach to receiving, tracking, and returning GFP, and any exceptions or concerns.",` +
-          `"cmmc":"MINIMUM 2 paragraphs on cybersecurity compliance: current CMMC level, plan to achieve required level if different, systems used to protect CUI, and DCSA coordination approach."}`,
+          `CRITICAL: You must explicitly acknowledge and address EVERY administrative and compliance requirement from the requirements list above. ` +
+          `This includes items such as: employee conduct on government premises, prohibitions on soliciting government business, ` +
+          `business card/letterhead rules, citizenship requirements, ID badge requirements, key personnel resume requirements, ` +
+          `resume page limits, and any other "shall/must/should" administrative requirements from the solicitation. ` +
+          `For each administrative requirement, include a brief affirmative statement that ${CLIENT_CONFIG.companyShortName} understands and will comply.\n\n` +
+          `Return ONLY JSON:\n{"cover_letter_additional":"MINIMUM 3 paragraphs: (1) formal acknowledgment of this specific solicitation by number and title, (2) statement of ${CLIENT_CONFIG.companyShortName}'s qualifications, SDVOSB status, and commitment, (3) key differentiators and best value statement.",` +
+          `"additional_fill_ins":["List EVERY specific certification, representation, fill-in, and administrative requirement from this solicitation. Include ALL required SAM/SAM.gov items, small business certifications, SDVOSB certification, CAGE/UEI confirmation, and any solicitation-specific forms or attachments required."],` +
+          `"oci_plan":"MINIMUM 2 paragraphs: (1) affirm no known OCIs exist, (2) describe ongoing monitoring approach.",` +
+          `"clearance_plan_additional":"MINIMUM 2 paragraphs on clearance plan: current FCL, plan for personnel clearances, timeline, and contingency.",` +
+          `"gfp":"MINIMUM 1 paragraph acknowledging GFP provisions from the solicitation and ${CLIENT_CONFIG.companyShortName}'s approach.",` +
+          `"cmmc":"MINIMUM 2 paragraphs on CMMC compliance level, current status, and plan.",` +
+          `"administrative_compliance":"MINIMUM 3 paragraphs explicitly addressing ALL administrative shall/must requirements: employee conduct rules, prohibition on government affiliation representation, citizenship/work authorization requirements, ID badge procedures, resume format compliance, and any other administrative requirements from the solicitation. Each requirement should be acknowledged by name and affirmed."}`,
           8000
         );
       }
@@ -3020,7 +3040,9 @@ function injectContentIntoXml(xml, data, vol) {
     xml = replaceContent(xml, '{{CLEARANCE_PLAN}}',       v.clearance_plan_additional || '');
     xml = replaceContent(xml, '{{FACILITY_CLEARANCE}}',   `${CLIENT_CONFIG.companyFullName} maintains an Active SECRET Facility Clearance (FCL). UEI: ${CLIENT_CONFIG.uei} | CAGE: ${CLIENT_CONFIG.cage}`);
     xml = replaceContent(xml, '{{GFP}}',                  v.gfp                      || '');
-    xml = replaceContent(xml, '{{CMMC}}',                 v.cmmc                     || '');
+    // Combine CMMC and administrative compliance into the CMMC section
+    const cmmcAndAdmin = [v.cmmc || '', v.administrative_compliance || ''].filter(Boolean).join('\n\n');
+    xml = replaceContent(xml, '{{CMMC}}',                 cmmcAndAdmin);
   }
 
   return xml;
