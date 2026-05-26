@@ -1469,10 +1469,13 @@ async function loadSharePointFiles() {
       } catch(e) { errors.push(`Templates folder: ${e.message}`); }
     }
 
-    // Merge content files into companyFiles (for token counting + API sending)
+    // Merge content files into companyFiles IN PLACE (never reassign — drop zone holds a reference)
     spFiles = loadedContent;
-    companyFiles = [...companyFiles.filter(f => !f._fromSP),
-                    ...loadedContent.map(f => Object.assign(f, {_fromSP: true}))];
+    // Remove old SP files, add new ones — mutate the array, don't replace it
+    for (let i = companyFiles.length - 1; i >= 0; i--) {
+      if (companyFiles[i]._fromSP) companyFiles.splice(i, 1);
+    }
+    loadedContent.forEach(f => { Object.assign(f, {_fromSP: true}); companyFiles.push(f); });
 
     // Store templates separately — never sent to API
     spTemplateFiles = loadedTemplates;
@@ -1637,11 +1640,11 @@ function addFilesToArray(newFiles, arr, listId) {
   });
   renderFileListById(arr, listId);
   updateStepLocks();
-  updateTokenMeter(); // always force refresh
+  updateTokenMeter();
   if (arr === rfpFiles) extractAndDisplayShalls();
   if (arr === complianceFiles) updateComplianceBtn();
-  // Reset analysis if files change
-  if (analysisComplete && added > 0) {
+  // Only reset analysis if the RFP or company source files change — NOT compliance check files
+  if (analysisComplete && added > 0 && arr !== complianceFiles) {
     analysisComplete = false;
     assumptions = [];
     document.getElementById('analysisResults').style.display = 'none';
@@ -1667,7 +1670,7 @@ function renderFileListById(arr, listId) {
     const size   = f.size < 1048576 ? `${(f.size/1024).toFixed(0)} KB` : `${(f.size/1048576).toFixed(1)} MB`;
     const tokEst = estimateTokens(f);
     const tokLabel = tokEst >= 1000 ? `~${Math.round(tokEst/1000)}k tokens` : `~${tokEst} tokens`;
-    const arrName  = arr === rfpFiles ? 'rfpFiles' : 'companyFiles';
+    const arrName  = arr === rfpFiles ? 'rfpFiles' : arr === complianceFiles ? 'complianceFiles' : 'companyFiles';
     return `<div class="file-item">
       <span class="file-icon">${icon}</span>
       <span class="file-name">${escHtml(f.name)}</span>
