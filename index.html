@@ -1186,18 +1186,51 @@ function getMimeType(file) {
 }
 
 // Build a Claude API content block for any supported file type
-// Returns null if file type is not supported by the API
+// Claude API only accepts 'application/pdf' as document type.
+// Other formats are sent as plain text where possible.
 async function fileToContentBlock(file) {
   const mime = getMimeType(file);
-  const supportedTypes = [
-    'application/pdf',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'text/csv', 'text/plain', 'text/html', 'text/markdown',
-  ];
-  if (!supportedTypes.includes(mime)) return null;
-  const b64 = await fileToBase64(file);
-  return { type: 'document', source: { type: 'base64', media_type: mime, data: b64 } };
+
+  // PDFs: send as native document
+  if (mime === 'application/pdf') {
+    const b64 = await fileToBase64(file);
+    return { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } };
+  }
+
+  // Plain text files: send as text
+  if (mime === 'text/plain' || mime === 'text/csv' || mime === 'text/markdown') {
+    const text = await file.text().catch(() => null);
+    if (text) return { type: 'text', text: `[File: ${file.name}]\n${text}` };
+    return null;
+  }
+
+  // Word/Excel: try to extract readable text from the XML inside the docx/xlsx
+  if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+    try {
+      const zip = await JSZip.loadAsync(file);
+      const docFile = zip.file('word/document.xml') || zip.file('xl/sharedStrings.xml');
+      if (docFile) {
+        const xmlContent = await docFile.async('string');
+        // Strip XML tags to get plain text
+        const text = xmlContent
+          .replace(/<w:br[^>]*>/g, '\n')
+          .replace(/<\/w:p>/g, '\n')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')
+          .replace(/&quot;/g,'"').replace(/&apos;/g,"'")
+          .replace(/\s{2,}/g,' ').replace(/\n{3,}/g,'\n\n').trim();
+        if (text.length > 50) {
+          return { type: 'text', text: `[File: ${file.name}]\n${text.substring(0, 50000)}` };
+        }
+      }
+    } catch(e) {
+      console.warn('Could not extract text from', file.name, e);
+    }
+    return { type: 'text', text: `[File: ${file.name} — binary file, content not extractable]` };
+  }
+
+  return null; // unsupported type
 }
 
 function buildAcceptedAssumptionsContext() {
@@ -1564,7 +1597,7 @@ function initDropZone(zoneId, inputId, fileArray, listId) {
 function addFilesToArray(newFiles, arr, listId) {
   let added = 0;
   newFiles.forEach(f => {
-    if (!arr.find(x => x.name === f.name)) { arr.push(f); added++; }
+    if (!arr.find(x => x.name === f.name && x.size === f.size)) { arr.push(f); added++; }
   });
   renderFileListById(arr, listId);
   updateStepLocks();
