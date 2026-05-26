@@ -687,9 +687,12 @@
 
       <!-- Shalls / Requirements Extractor — populated after Analyze is run -->
       <div class="shalls-section" id="shallsSection" style="display:none;margin-top:16px">
-        <div class="shalls-header" onclick="toggleShalls()">
+        <div class="shalls-header" onclick="toggleShalls()" style="gap:8px">
           <span class="shalls-title">📋 Extracted Requirements (shall / must / should)</span>
           <span class="shalls-count" id="shallsCount">0 requirements</span>
+          <button id="shallsCopyBtn" onclick="event.stopPropagation();copyShallsToClipboard()" 
+            style="display:none;padding:3px 10px;font-size:11px;font-weight:600;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;color:var(--blue)"
+            title="Copy all requirements to clipboard">⎘ Copy all</button>
           <span id="shallsToggleIcon" style="font-size:12px;color:var(--muted)">▼</span>
         </div>
         <div class="shalls-body" id="shallsBody" style="display:none"></div>
@@ -807,6 +810,37 @@
     </div>
   </div>
   <div class="log-box" id="logBox" style="display:none !important"></div>
+
+  <!-- ── Step 8: Compliance Check ─────────────────────────────────────────── -->
+  <div class="card" id="step8Card" style="margin-bottom:24px">
+    <div class="card-header"><span class="icon">✅</span> Step 8: Compliance Check</div>
+    <div class="card-body">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px">
+        Drop your generated Word documents here, then click <strong>Run Compliance Check</strong> to verify that every "shall," "must," and "should" requirement from your RFP has been addressed in your proposal volumes.
+      </p>
+      <div class="drop-zone" id="dropZoneCompliance" style="margin-bottom:16px;min-height:100px">
+        <input type="file" id="fileInputCompliance" multiple accept=".docx,.doc,.pdf,.txt"/>
+        <div class="dz-icon">📄</div>
+        <div class="dz-title">Drop Generated Proposal Documents Here</div>
+        <div class="dz-sub">Vol I, II, III, IV — Word or PDF</div>
+      </div>
+      <div class="file-list" id="fileListCompliance" style="margin-bottom:12px"></div>
+      <button class="btn btn-primary" id="complianceRunBtn" onclick="runComplianceCheck()"
+        style="width:100%" disabled>
+        <span>🔍 Run Compliance Check</span>
+      </button>
+      <div id="complianceResults" style="margin-top:16px;display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-weight:700;font-size:14px" id="complianceSummary"></div>
+          <button onclick="copyComplianceResults()"
+            style="padding:4px 12px;font-size:12px;font-weight:600;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;color:var(--blue)">
+            ⎘ Copy results
+          </button>
+        </div>
+        <div id="complianceList" style="max-height:400px;overflow-y:auto;overscroll-behavior-y:contain;border:1px solid var(--border);border-radius:8px;padding:12px;background:#fafafa"></div>
+      </div>
+    </div>
+  </div>
 
 </div>
 <script>
@@ -1603,6 +1637,7 @@ function addFilesToArray(newFiles, arr, listId) {
   updateStepLocks();
   updateTokenMeter(); // always force refresh
   if (arr === rfpFiles) extractAndDisplayShalls();
+  if (arr === complianceFiles) updateComplianceBtn();
   // Reset analysis if files change
   if (analysisComplete && added > 0) {
     analysisComplete = false;
@@ -1618,6 +1653,7 @@ function removeFileFromArray(name, arr, listId) {
   renderFileListById(arr, listId);
   updateStepLocks();
   if (arr === rfpFiles) extractAndDisplayShalls();
+  if (arr === complianceFiles) updateComplianceBtn();
 }
 
 function renderFileListById(arr, listId) {
@@ -1681,8 +1717,9 @@ function updateTokenMeter() {
 
 // Init both drop zones on load
 window.addEventListener('DOMContentLoaded', () => {
-  initDropZone('dropZoneRFP',     'fileInputRFP',     rfpFiles,     'fileListRFP');
-  initDropZone('dropZoneCompany', 'fileInputCompany', companyFiles, 'fileListCompany');
+  initDropZone('dropZoneRFP',        'fileInputRFP',        rfpFiles,        'fileListRFP');
+  initDropZone('dropZoneCompany',    'fileInputCompany',    companyFiles,    'fileListCompany');
+  initDropZone('dropZoneCompliance', 'fileInputCompliance', complianceFiles, 'fileListCompliance');
   updateStepLocks();
 });
 
@@ -1819,10 +1856,9 @@ async function runAnalysis() {
   document.getElementById('analyzeBtnIcon').innerHTML = '<div class="spinner"></div>';
   document.getElementById('analyzeBtnText').textContent = 'Analyzing...';
   const totalFiles = rfpFiles.length + companyFiles.length;
+  const totalAnalyzeFiles = rfpFiles.length + companyFiles.length;
   showStatus('info', 'Analyzing documents...', 
-    `Reading ${rfpFiles.length} RFP document${rfpFiles.length > 1 ? 's' : ''}` +
-    (companyFiles.length > 0 ? ` (company documents use your profile data)` : '') +
-    `. This takes 30–60 seconds.`, true);
+    `Reading ${rfpFiles.length} RFP + ${companyFiles.length} company document${totalAnalyzeFiles !== 1 ? 's' : ''} (${totalAnalyzeFiles} total). This takes 30–60 seconds.`, true);
   setProgress(10, [{ text: 'Reading RFP documents', status: 'active' }, { text: 'Building review panels', status: '' }]);
 
   try {
@@ -2062,6 +2098,160 @@ async function extractShallsViaApi(docContent, apiKey) {
   } catch(e) { console.warn('Shalls extraction failed:', e.message); }
 }
 
+// ─── SHALLS COPY TO CLIPBOARD ────────────────────────────────────────────────
+function copyShallsToClipboard() {
+  const body = document.getElementById('shallsBody');
+  if (!body) return;
+  const items = body.querySelectorAll('.shall-item');
+  if (!items.length) return;
+  const text = Array.from(items).map(el => el.textContent.trim()).join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('shallsCopyBtn');
+    if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = '⎘ Copy all'; }, 2000); }
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    const btn = document.getElementById('shallsCopyBtn');
+    if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = '⎘ Copy all'; }, 2000); }
+  });
+}
+
+// ─── COMPLIANCE CHECK (Step 8) ────────────────────────────────────────────────
+let complianceFiles = [];
+
+function updateComplianceBtn() {
+  const btn = document.getElementById('complianceRunBtn');
+  if (btn) { btn.disabled = complianceFiles.length === 0; btn.style.opacity = complianceFiles.length > 0 ? '1' : '0.45'; }
+}
+
+async function runComplianceCheck() {
+  if (complianceFiles.length === 0) return;
+
+  const shallsBody = document.getElementById('shallsBody');
+  const requirementEls = shallsBody ? shallsBody.querySelectorAll('.shall-item') : [];
+  const requirements = Array.from(requirementEls).map(el => el.textContent.trim()).filter(r => r.length > 10);
+
+  if (requirements.length === 0) {
+    showStatus('warn', 'No requirements extracted', 'Run Step 5 Analyze first to extract requirements from your RFP documents.');
+    return;
+  }
+
+  const btn = document.getElementById('complianceRunBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle"></span> Checking compliance…';
+  document.getElementById('complianceResults').style.display = 'none';
+
+  try {
+    const apiKey = getApiKey();
+    if (!apiKey) throw new Error('No API key found.');
+
+    const content = [];
+    for (const file of complianceFiles) {
+      const block = await fileToContentBlock(file);
+      if (block) content.push(block);
+    }
+
+    const requirementsList = requirements.map((r, i) => `${i+1}. ${r}`).join('\n');
+    content.push({ type: 'text', text:
+      `You are a government proposal compliance reviewer.\n\n` +
+      `Review the attached proposal documents against this list of ${requirements.length} requirements from the solicitation.\n\n` +
+      `REQUIREMENTS:\n${requirementsList}\n\n` +
+      `For each requirement determine:\n` +
+      `- ADDRESSED: proposal clearly responds to this requirement\n` +
+      `- PARTIAL: proposal mentions it but doesn't fully respond\n` +
+      `- MISSING: proposal does not address this at all\n\n` +
+      `Return ONLY JSON (no markdown):\n` +
+      `{"addressed":["req text",...],"partial":[{"req":"text","issue":"what is missing"},...],"missing":["req text",...],"summary":"one sentence overall assessment"}`
+    });
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 8000,
+        messages: [{ role: 'user', content }] })
+    });
+    if (!resp.ok) throw new Error(`API error ${resp.status}: ${await resp.text().catch(()=>'')}`);
+    const d = await resp.json();
+    let raw = d.content.map(c=>c.text||'').join('').trim()
+      .replace(/^```json\s*/i,'').replace(/\s*```$/,'').trim();
+    let result;
+    try { result = JSON.parse(raw); }
+    catch(e) { const m = raw.match(/\{[\s\S]+\}/); result = m ? JSON.parse(m[0]) : null; }
+    if (!result) throw new Error('Could not parse compliance results.');
+
+    const addressed = result.addressed || [];
+    const partial   = result.partial   || [];
+    const missing   = result.missing   || [];
+    const total = addressed.length + partial.length + missing.length;
+    const pct   = total > 0 ? Math.round((addressed.length / total) * 100) : 0;
+
+    document.getElementById('complianceSummary').innerHTML =
+      `<span style="color:var(--success)">✅ ${addressed.length} addressed</span> &nbsp;` +
+      `<span style="color:#b45309">⚠️ ${partial.length} partial</span> &nbsp;` +
+      `<span style="color:var(--error)">❌ ${missing.length} missing</span> &nbsp;` +
+      `<span style="color:var(--muted)">(${pct}% compliant)</span>`;
+
+    let html = '';
+    if (missing.length > 0) {
+      html += `<div style="margin-bottom:14px"><div style="font-weight:700;color:var(--error);margin-bottom:6px">❌ MISSING — Not addressed (${missing.length})</div>`;
+      html += missing.map(r => `<div class="shall-item" style="border-left:3px solid #dc2626;padding-left:8px;color:#dc2626">${escHtml(r)}</div>`).join('');
+      html += '</div>';
+    }
+    if (partial.length > 0) {
+      html += `<div style="margin-bottom:14px"><div style="font-weight:700;color:#b45309;margin-bottom:6px">⚠️ PARTIAL — Needs strengthening (${partial.length})</div>`;
+      html += partial.map(p => `<div class="shall-item" style="border-left:3px solid #f59e0b;padding-left:8px;color:#92400e"><strong>${escHtml(p.req||p)}</strong>${p.issue?`<div style="font-size:12px;margin-top:3px;color:var(--muted)">${escHtml(p.issue)}</div>`:''}</div>`).join('');
+      html += '</div>';
+    }
+    if (addressed.length > 0) {
+      html += `<details style="margin-top:8px"><summary style="cursor:pointer;font-weight:700;color:var(--success);font-size:13px">✅ Addressed (${addressed.length}) — click to expand</summary>`;
+      html += '<div style="margin-top:8px">' + addressed.map(r=>`<div class="shall-item" style="color:var(--success)">${escHtml(r)}</div>`).join('') + '</div></details>';
+    }
+    if (result.summary) {
+      html += `<div style="margin-top:12px;padding:10px 14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;font-size:13px"><strong>Assessment:</strong> ${escHtml(result.summary)}</div>`;
+    }
+
+    document.getElementById('complianceList').innerHTML = html;
+    document.getElementById('complianceResults').style.display = 'block';
+    document.getElementById('step8Card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  } catch(e) {
+    showStatus('error', 'Compliance check failed', e.message);
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span>🔍 Run Compliance Check</span>';
+    updateComplianceBtn();
+  }
+}
+
+function copyComplianceResults() {
+  const summaryEl = document.getElementById('complianceSummary');
+  const listEl    = document.getElementById('complianceList');
+  if (!listEl) return;
+  let text = 'COMPLIANCE CHECK RESULTS\n';
+  if (summaryEl) text += summaryEl.textContent.trim() + '\n';
+  ['MISSING','PARTIAL','Addressed'].forEach(label => {
+    const section = Array.from(listEl.querySelectorAll('.shall-item')).filter(el => {
+      const parent = el.closest('[style*="margin-bottom"]');
+      return parent && parent.querySelector('[style*="font-weight"]')?.textContent.includes(label);
+    });
+    if (section.length) {
+      text += `\n${label.toUpperCase()}:\n`;
+      section.forEach(el => { text += '• ' + el.textContent.trim() + '\n'; });
+    }
+  });
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('[onclick="copyComplianceResults()"]');
+    if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => btn.textContent = '⎘ Copy results', 2000); }
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+  });
+}
+
 function toggleShalls() {
   const body = document.getElementById('shallsBody');
   const icon = document.getElementById('shallsToggleIcon');
@@ -2144,6 +2334,9 @@ function populateShallsFromAnalysis(shallsText) {
     );
     return `<div class="shall-item">${highlighted}</div>`;
   }).join('');
+  // Show the copy button
+  const copyBtn = document.getElementById('shallsCopyBtn');
+  if (copyBtn) copyBtn.style.display = 'inline-block';
 }
 
 // Call extractShalls whenever RFP files change
