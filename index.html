@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>SRFed Proposal Generator</title>
+<title>SRFed Proposal Tool</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.10.0/lib/msal-browser.min.js" crossorigin="anonymous"></script>
 <style>
@@ -371,7 +371,7 @@
   .step-locked::after {
     content: '';
     position: absolute; inset: 0;
-    background: rgba(226,232,243,0.80);
+    background: rgba(226,232,243,0.82);
     border-radius: 10px;
     pointer-events: all;
     z-index: 20;
@@ -383,21 +383,21 @@
     position: absolute;
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
-    z-index: 12;
+    z-index: 30;  /* above overlay */
     text-align: center;
     pointer-events: none;
     flex-direction: column; align-items: center; gap: 10px;
   }
-  .step-locked .lock-msg .lock-icon { font-size: 32px; line-height: 1; }
+  .step-locked .lock-msg .lock-icon { font-size: 36px; line-height: 1; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15)); }
   .step-locked .lock-msg .lock-text {
     font-size: 13px; font-weight: 700;
-    color: var(--blue-gray);
+    color: #1e3a5f;
     white-space: nowrap;
     background: white;
-    padding: 4px 12px;
+    padding: 5px 14px;
     border-radius: 20px;
     border: 1px solid var(--border);
-    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
   }
 
   /* ── ASSUMPTION PANELS SIDE BY SIDE ── */
@@ -496,18 +496,33 @@
     margin: 0 auto; flex: 1; justify-content: center;
   }
   .tab-btn {
-    background: rgba(255,255,255,0.12);
+    background: linear-gradient(160deg, #4a8ae8 0%, #2d6cc4 100%);
     border: 1px solid rgba(255,255,255,0.25);
-    color: rgba(255,255,255,0.85);
-    padding: 10px 0; border-radius: 8px;
-    font-size: 13px; font-weight: 600; cursor: pointer;
+    border-bottom: 2px solid rgba(0,0,0,0.15);
+    color: rgba(255,255,255,0.88);
+    padding: 12px 0; border-radius: 8px;
+    font-size: 15px; font-weight: 600; cursor: pointer;
     transition: all 0.15s; letter-spacing: 0.2px;
-    min-width: 148px; width: 148px; text-align: center;
-    font-family: inherit;
-    white-space: nowrap;
+    min-width: 160px; width: 160px; text-align: center;
+    font-family: inherit; white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.15);
   }
-  .tab-btn:hover { background: rgba(255,255,255,0.22); color: white; }
-  .tab-btn.active { background: white; color: var(--blue); border-color: white; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+  .tab-btn:hover {
+    background: linear-gradient(160deg, #5c9bf5 0%, #3a7be0 100%);
+    color: white;
+    border-color: rgba(255,255,255,0.4);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.2);
+    transform: translateY(-1px);
+  }
+  .tab-btn.active {
+    background: linear-gradient(160deg, #ffffff 0%, #e8f0ff 100%);
+    color: var(--blue);
+    border: 2px solid white;
+    border-bottom: 2px solid #c8d8f8;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2), inset 0 -2px 0 #b0c8f0;
+    font-weight: 700;
+    transform: translateY(-1px);
+  }
   .tab-pane { display: none; }
   .tab-pane.active { display: block; }
   /* ── SETTINGS UI ── */
@@ -555,7 +570,7 @@
 <header class="app-header">
   <div class="header-left">
     <img class="logo-img" id="appLogo" src="" alt="Logo"/>
-    <div class="logo-text" id="appTitle">SRFed Proposal Generator</div>
+    <div class="logo-text" id="appTitle">SRFed Proposal Tool</div>
   </div>
   <!-- Tab navigation -->
   <nav class="tab-nav" id="tabNav">
@@ -1219,9 +1234,13 @@
         </div>
       </div>
       <div class="card-body" id="bnaIntelBody">
-        <div style="font-size:13px;color:var(--muted);text-align:center;padding:20px">
-          <span class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:8px"></span>
-          Extracting opportunity details…
+        <div style="text-align:center;padding:20px">
+          <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Extract detailed opportunity information from the solicitation documents — agency, contract details, NAICS, period of performance, set-aside, KO/COR, and more.</p>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:14px">⚠️ This makes a separate API call and may take 30–60 seconds depending on document size.</p>
+          <button onclick="runOpportunityIntel()" id="bnaIntelBtn"
+            style="padding:10px 24px;font-size:13px;font-weight:600;background:var(--blue);color:white;border:none;border-radius:8px;cursor:pointer">
+            📊 Extract Opportunity Details
+          </button>
         </div>
       </div>
     </div>
@@ -1298,7 +1317,7 @@
           <div class="settings-field"><label>Clearances</label><input type="text" id="s_clearances" placeholder="Active SECRET FCL, personnel up to TS/SCI"/></div>
           <div class="settings-field"><label>CMMC Level</label><input type="text" id="s_cmmc" placeholder="CMMC Level 2 Compliant"/></div>
           <div class="settings-field"><label>DCAA Status</label><input type="text" id="s_dcaa" placeholder="DCAA-approved accounting system"/></div>
-          <div class="settings-field"><label>App Title</label><input type="text" id="s_appTitle" placeholder="SRFed Proposal Generator"/></div>
+          <div class="settings-field"><label>App Title</label><input type="text" id="s_appTitle" placeholder="SRFed Proposal Tool"/></div>
         </div>
       </div>
 
@@ -1328,7 +1347,7 @@
 const CLIENT_CONFIG = {
 
   // ── Branding ──────────────────────────────────────────────────────────────
-  appTitle:       'SRFed Proposal Generator',
+  appTitle:       'SRFed Proposal Tool',
   primaryColor:   '#005FD5',   // header, card headers, buttons
   secondaryColor: '#485872',   // accents, h2 headings in docs
   accentColor:    '#3EB6F4',   // light highlights
@@ -4680,12 +4699,27 @@ async function runBidNoBid() {
     document.getElementById('bnaRisks').innerHTML = (result.risks||[]).map(r=>`<div style="margin-bottom:5px">⚠️ ${escHtml(r)}</div>`).join('');
     document.getElementById('bnaWinStrategy').innerHTML = (result.win_strategy||[]).map(w=>`<div style="margin-bottom:5px">→ ${escHtml(w)}</div>`).join('');
 
-    updateBnaLiveScore();
+    // Hide verdict until user confirms Tier 2 entries
+    const verdictBanner = document.getElementById('bnaVerdictBanner');
+    const breakdownCard  = document.getElementById('bnaScoreBreakdown');
+    if (verdictBanner) verdictBanner.style.display = 'none';
+    // Show a prompt to complete Tier 2 and confirm
+    const tier2Section = document.getElementById('bnaFactorsTier2');
+    if (tier2Section) {
+      const confirmDiv = document.createElement('div');
+      confirmDiv.id = 'bnaConfirmRow';
+      confirmDiv.style.cssText = 'padding:14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;margin-top:8px;text-align:center';
+      confirmDiv.innerHTML = '<p style="font-size:13px;color:var(--blue);font-weight:600;margin-bottom:10px">👆 Adjust the sliders above for your Tier 2 assessment, then confirm to see your final score.</p>' +
+        '<button onclick="confirmBnaScore()" style="padding:10px 28px;font-size:14px;font-weight:700;background:var(--blue);color:white;border:none;border-radius:8px;cursor:pointer">✅ Confirm Entries & Calculate Score</button>';
+      tier2Section.parentNode.insertBefore(confirmDiv, tier2Section.nextSibling);
+    }
     document.getElementById('bnaResults').style.display = 'block';
     document.getElementById('bnaResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
     window._lastBnaResult = result;
 
-    extractOpportunityIntel(content.slice(0, -1), apiKey);
+    // Opportunity Intel is triggered manually — store content for later
+    window._lastBnaContent = content.slice(0, -1);
+    window._lastBnaApiKey  = apiKey;
   } catch(e) {
     alert(`Bid/No-Bid analysis failed: ${e.message}`);
   } finally {
@@ -4694,6 +4728,156 @@ async function runBidNoBid() {
     updateBnaBtn();
   }
 }
+function confirmBnaScore() {
+  // Show verdict banner and score breakdown with current Tier 2 values
+  updateBnaLiveScore();
+  const verdictBanner = document.getElementById('bnaVerdictBanner');
+  if (verdictBanner) verdictBanner.style.display = 'flex';
+  // Replace confirm button with "Recalculate" option
+  const confirmRow = document.getElementById('bnaConfirmRow');
+  if (confirmRow) {
+    confirmRow.style.background = '#f0fdf4';
+    confirmRow.style.borderColor = '#86efac';
+    confirmRow.innerHTML = '<p style="font-size:12px;color:var(--success);font-weight:600;margin-bottom:6px">✅ Score confirmed. Adjust sliders above and click Recalculate to update.</p>' +
+      '<button onclick="confirmBnaScore()" style="padding:6px 18px;font-size:12px;font-weight:600;border:1px solid var(--success);color:var(--success);background:white;border-radius:6px;cursor:pointer">🔄 Recalculate</button>';
+  }
+  // Scroll to verdict
+  verdictBanner?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function runOpportunityIntel() {
+  const btn = document.getElementById('bnaIntelBtn');
+  const body = document.getElementById('bnaIntelBody');
+  const content = window._lastBnaContent;
+  const apiKey  = window._lastBnaApiKey || getApiKey();
+
+  if (!content || !content.length) {
+    if (body) body.innerHTML = '<div style="padding:14px;font-size:13px;color:var(--error)">Run the Bid/No-Bid analysis first.</div>';
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner" style="width:12px;height:12px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:8px"></span> Extracting…'; }
+
+  // Only send RFP documents (bnaFiles), not company docs — much smaller request
+  const rfpContent = [];
+  for (const file of bnaFiles.slice(0, 6)) {
+    const block = await fileToContentBlock(file);
+    if (block) rfpContent.push(block);
+  }
+
+  await extractOpportunityIntel(rfpContent, apiKey);
+}
+
+async function extractOpportunityIntel(docContent, apiKey) {
+  const body = document.getElementById('bnaIntelBody');
+  if (!body) return;
+  const btn = document.getElementById('bnaIntelBtn');
+
+  const prompt = `You are analyzing a US Government solicitation document for South River Federal Solutions (SRFed), an SDVOSB.\n\n` +
+    `Extract the following fields. For each field:\n` +
+    `- If directly stated: set "inferred": false\n` +
+    `- If you can reasonably infer: set "inferred": true and prefix value with "[Inferred] "\n` +
+    `- If unavailable: use "Not stated in documents"\n\n` +
+    `CRITICAL: Respond with ONLY a raw JSON object. No markdown. No backticks. Start with { end with }.\n\n` +
+    `{"customer_agency":"","requirement_name":"","id_number":"","stage":"Sources Sought/RFI/RFP/RFQ/Task Order","next_due_date":"","opportunity_url":"","description":"2-3 sentence description","fte_count":"","contract_years":"e.g. 1 base + 4 options","place_of_performance":"","work_setting":"In-person/Remote/Hybrid","period_of_performance":"base year start/end","last_possible_performance_date":"","facility_clearance_required":"","personnel_clearance_required":"","set_aside":"","contract_vehicle":"","ko_name_office":"","cor_name_office":"","naics_code":"","sin":"","psc":"","base_year_value":"","total_contract_value":"","award_value_rationale":"","new_or_recompete":"","incumbent":"","contract_type":"FFP/T&M/CPFF/etc","certifications_required":[],"sca_positions":[],"pursuit_recommendation":"prime/sub/pass with brief rationale"}`;
+
+  const content = [...docContent, { type: 'text', text: prompt }];
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 3000,
+        messages: [{ role: 'user', content }] })
+    });
+    if (!resp.ok) throw new Error(`API ${resp.status}`);
+    const d = await resp.json();
+    let raw = d.content.map(c=>c.text||'').join('').trim()
+      .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim()
+      .replace(/^#+\s+[^\n]*\n/gm,'').trim();
+    const m = raw.match(/\{[\s\S]+\}/);
+    if (!m) throw new Error('No JSON in response');
+    let jsonStr = m[0];
+    if (!jsonStr.endsWith('}')) { const lb=jsonStr.lastIndexOf('}'); if(lb>0) jsonStr=jsonStr.substring(0,lb+1); }
+    const intel = JSON.parse(jsonStr);
+    window._lastBnaIntel = intel;
+    renderOpportunityIntel(intel, body);
+  } catch(e) {
+    body.innerHTML = `<div style="padding:14px;font-size:13px;color:var(--error)">Could not extract: ${escHtml(e.message)}</div>`;
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '📊 Extract Opportunity Details'; }
+  }
+}
+
+function renderOpportunityIntel(intel, container) {
+  const FIELDS = [
+    { key:'customer_agency',              label:'Customer and Agency' },
+    { key:'requirement_name',             label:'Requirement / Opportunity Name' },
+    { key:'id_number',                    label:'ID Number' },
+    { key:'stage',                        label:'Current Stage' },
+    { key:'next_due_date',                label:'Next Due Date' },
+    { key:'opportunity_url',              label:'Opportunity URL' },
+    { key:'description',                  label:'Description of Procurement' },
+    { key:'fte_count',                    label:'Number of FTEs' },
+    { key:'contract_years',               label:'Contract Duration' },
+    { key:'place_of_performance',         label:'Place of Performance' },
+    { key:'work_setting',                 label:'In-Person / Remote / Hybrid' },
+    { key:'period_of_performance',        label:'Period of Performance' },
+    { key:'last_possible_performance_date',label:'Last Possible Performance Date' },
+    { key:'facility_clearance_required',  label:'Facility Clearance Required' },
+    { key:'personnel_clearance_required', label:'Personnel Clearance Required' },
+    { key:'set_aside',                    label:'Set-Aside' },
+    { key:'contract_vehicle',             label:'Contract Vehicle' },
+    { key:'ko_name_office',               label:'KO Name and Office' },
+    { key:'cor_name_office',              label:'COR Name and Office' },
+    { key:'naics_code',                   label:'NAICS Code' },
+    { key:'sin',                          label:'SIN' },
+    { key:'psc',                          label:'PSC' },
+    { key:'base_year_value',              label:'Base Year Value' },
+    { key:'total_contract_value',         label:'Total Contract Value' },
+    { key:'award_value_rationale',        label:'Award Value Rationale' },
+    { key:'new_or_recompete',             label:'New or Recompete' },
+    { key:'incumbent',                    label:'Incumbent' },
+    { key:'contract_type',               label:'Contract Type' },
+    { key:'certifications_required',      label:'Certifications Required' },
+    { key:'sca_positions',                label:'SCA Positions & Rates' },
+    { key:'pursuit_recommendation',       label:'Pursuit Recommendation' },
+  ];
+
+  container.innerHTML = FIELDS.map(f => {
+    let raw = intel[f.key];
+    if (raw === undefined || raw === null) raw = 'Not stated in documents';
+    let displayVal = Array.isArray(raw) ? (raw.length ? raw.join(' · ') : 'Not stated') : String(raw);
+    const isInferred = displayVal.startsWith('[Inferred]');
+    displayVal = displayVal.replace(/^\[Inferred\]\s*/, '');
+    const isMissing = displayVal === 'Not stated in documents' || displayVal === 'Not stated';
+    const isUrl = /^https?:\/\//i.test(displayVal);
+    const valStyle = isInferred ? 'color:#92400e;font-style:italic' : isMissing ? 'color:var(--muted);font-style:italic' : 'color:var(--text)';
+    const badge = isInferred ? `<span style="font-size:10px;font-weight:700;background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:1px 6px;color:#92400e;margin-left:6px">Inferred</span>` : '';
+    const val = isUrl ? `<a href="${escHtml(displayVal)}" target="_blank" style="color:var(--blue)">${escHtml(displayVal)}</a>` : `<span style="${valStyle}">${escHtml(displayVal)}</span>`;
+    const rowBg = f.key === 'pursuit_recommendation' ? 'background:#eff6ff;border-left:3px solid var(--blue);' : 'border-bottom:1px solid #f1f5f9;';
+    return `<div style="display:flex;gap:12px;padding:8px 4px;${rowBg}align-items:baseline">
+      <div style="min-width:220px;max-width:220px;font-size:12px;font-weight:700;color:var(--text);flex-shrink:0">${escHtml(f.label)}:</div>
+      <div style="font-size:13px;flex:1;line-height:1.5">${val}${badge}</div>
+    </div>`;
+  }).join('');
+}
+
+function copyOpportunityIntel() {
+  const intel = window._lastBnaIntel;
+  if (!intel) return;
+  let text = 'OPPORTUNITY INTELLIGENCE\n\n';
+  Object.entries(intel).forEach(([k, v]) => {
+    const val = Array.isArray(v) ? v.join(', ') : String(v||'').replace(/^\[Inferred\]\s*/,'');
+    text += `${k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}: ${val}\n`;
+  });
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('[onclick="copyOpportunityIntel()"]');
+    if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => btn.textContent = '⎘ Copy', 2000); }
+  });
+}
+
 function copyBnaResults() {
   const result = window._lastBnaResult;
   if (!result) return;
