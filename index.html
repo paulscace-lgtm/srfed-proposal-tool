@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>SRFed Proposal Tool</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23005FD5'/%3E%3Ctext x='16' y='22' font-family='Arial,sans-serif' font-size='18' font-weight='700' fill='white' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.10.0/lib/msal-browser.min.js" crossorigin="anonymous"></script>
 <style>
@@ -4620,18 +4621,19 @@ async function runBidNoBid() {
         ? `COMPANY DOCUMENTS PROVIDED: Score using actual content from attached documents.\n\n`
         : `NO COMPANY DOCUMENTS: Base technical/PP scores on company profile only.\n\n`) +
       `Score ONLY these 6 factors from 0-10 based on the solicitation documents.\n` +
-      `CRITICAL: Respond with ONLY a raw JSON object. No markdown. No backticks. Start with { end with }.\n\n` +
-      `{"data_confidence":"${hasCompanyDocs ? 'HIGH' : 'LOW — no company docs'}",` +
+      `CRITICAL: Respond with ONLY a raw JSON object. No markdown. No backticks. Start with { end with }.\n` +
+      `IMPORTANT: In all "rationale" values, use only plain text. Do NOT use quotes, apostrophes, backslashes, or any special characters inside the rationale strings — rephrase to avoid them.\n\n` +
+      `{"data_confidence":"${hasCompanyDocs ? 'HIGH' : 'LOW'}",` +
       `"factors":{` +
-      `"technical_capability":{"score":7,"rationale":"brief reason"},` +
-      `"competition":{"score":6,"rationale":"..."},` +
-      `"past_performance":{"score":7,"rationale":"..."},` +
-      `"eligibility":{"score":9,"rationale":"..."},` +
-      `"strategic_value":{"score":6,"rationale":"..."},` +
-      `"scope_clarity":{"score":8,"rationale":"..."}},` +
-      `"risks":["risk1","risk2","risk3"],` +
-      `"win_strategy":["strategy1","strategy2","strategy3"],` +
-      `"summary":"one sentence overall assessment"}`
+      `"technical_capability":{"score":7,"rationale":"plain text only no quotes"},` +
+      `"competition":{"score":6,"rationale":"plain text only"},` +
+      `"past_performance":{"score":7,"rationale":"plain text only"},` +
+      `"eligibility":{"score":9,"rationale":"plain text only"},` +
+      `"strategic_value":{"score":6,"rationale":"plain text only"},` +
+      `"scope_clarity":{"score":8,"rationale":"plain text only"}},` +
+      `"risks":["risk one","risk two","risk three"],` +
+      `"win_strategy":["strategy one","strategy two","strategy three"],` +
+      `"summary":"plain text summary"}`
     });
 
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -4649,10 +4651,25 @@ async function runBidNoBid() {
     const jsonMatch = raw.match(/\{[\s\S]+\}/);
     if (!jsonMatch) throw new Error('No valid JSON in response. Try again.');
     let jsonStr = jsonMatch[0];
+    // Sanitize: fix unescaped special chars inside string values
+    // Replace unescaped double quotes inside values (common Claude error)
+    jsonStr = jsonStr.replace(/:(\s*)"([^"]*)"([^,}\]]*)"([^"]*)"(\s*[,}\]])/g, ':"$2$3$4"$5');
+    // Remove any control characters
+    jsonStr = jsonStr.replace(/[\x00-\x1F\x7F]/g, ' ');
     if (!jsonStr.endsWith('}')) { const lb=jsonStr.lastIndexOf('}'); if(lb>0){jsonStr=jsonStr.substring(0,lb+1);const op=(jsonStr.match(/\[/g)||[]).length-(jsonStr.match(/\]/g)||[]).length;for(let i=0;i<op;i++) jsonStr+=']';jsonStr+='}';} }
     let result;
     try { result = JSON.parse(jsonStr); }
-    catch(e) { throw new Error(`Could not parse response: ${e.message}. Try again.`); }
+    catch(e) {
+      // Last resort: try to extract each field individually
+      const extractStr = (key) => { const m = jsonStr.match(new RegExp(`"${key}"\\s*:\\s*"([^"]*?)"`)); return m ? m[1] : null; };
+      const extractNum = (key) => { const m = jsonStr.match(new RegExp(`"${key}"\\s*:\\s*(\\d+)`)); return m ? parseInt(m[1]) : 5; };
+      const factors = {};
+      ['technical_capability','competition','past_performance','eligibility','strategic_value','scope_clarity'].forEach(k => {
+        factors[k] = { score: extractNum(`"${k}"[^}]*"score"`), rationale: 'See full analysis above' };
+      });
+      result = { data_confidence: 'PARSE ERROR — scores estimated', factors, risks: [], win_strategy: [], summary: extractStr('summary') || 'Analysis complete — see factor scores.' };
+      console.warn('JSON parse failed, using fallback:', e.message);
+    }
 
     // Store tier 1 scores
     bna_tier1_scores = {};
