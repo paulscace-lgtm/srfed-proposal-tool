@@ -1100,7 +1100,7 @@
       <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Upload the solicitation and optionally your company documents. Use the drop zones, SharePoint links, or both. Company documents significantly improve scoring accuracy.</p>
 
       <!-- RFP Documents -->
-      <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:6px">📂 Solicitation Documents</div>
+      <div style="font-size:14px;font-weight:700;color:var(--blue);margin-bottom:6px">📂 Solicitation Documents</div>
       <div class="drop-zone" id="dropZoneBNA" style="margin-bottom:8px">
         <input type="file" id="fileInputBNA" multiple accept=".pdf,.docx,.doc,.xlsx,.xls,.txt"/>
         <div class="dz-icon">📂</div>
@@ -1111,7 +1111,7 @@
 
       <!-- Company Documents -->
       <div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:8px">
-        <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:4px">🏢 Company Documents <span style="font-weight:400;color:var(--muted)">(optional — improves PP and capability scoring)</span></div>
+        <div style="font-size:14px;font-weight:700;color:var(--blue);margin-bottom:4px">🏢 Company Documents <span style="font-size:12px;font-weight:400;color:var(--muted)">(optional — improves PP and capability scoring)</span></div>
         <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Drop files directly, enter SharePoint folder URLs, or both. Without company documents, Past Performance and Technical Capability scores are estimates only.</p>
 
         <div class="drop-zone" id="dropZoneBNADocs" style="min-height:80px;margin-bottom:8px">
@@ -1148,20 +1148,20 @@
       <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
         <div onclick="toggleWeightEditor()"
           style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin-bottom:0">
-          <div style="font-size:12px;font-weight:700;color:var(--blue)">⚖️ Customize Scoring Weights</div>
+          <div style="font-size:15px;font-weight:700;color:var(--blue)">⚖️ Customize Scoring Weights</div>
           <div style="display:flex;align-items:center;gap:8px">
             <span id="weightTotalBadge"
               style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:#f0fdf4;border:1px solid #86efac;color:var(--success)">
               100% ✓
             </span>
-            <span id="weightEditorToggle" style="font-size:12px;color:var(--muted)">▼ expand</span>
+            <span id="weightEditorToggle" style="font-size:12px;color:var(--muted)">▲ collapse</span>
           </div>
         </div>
-        <div id="weightEditorBody" style="display:none;margin-top:12px">
+        <div id="weightEditorBody" style="display:block;margin-top:12px">
           <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Adjust how much each factor contributes to the final score. All weights must total exactly 100%.</p>
-          <div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">🤖 Tier 1 — Auto-Scored (Claude reads documents)</div>
+          <div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:8px">🤖 Tier 1 — Auto-Scored (Claude reads documents)</div>
           <div id="weightsTier1" style="margin-bottom:16px"></div>
-          <div style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">✍️ Tier 2 — Your Assessment</div>
+          <div style="font-size:13px;font-weight:700;color:#7c3aed;margin-bottom:8px">✍️ Tier 2 — Your Assessment</div>
           <div id="weightsTier2" style="margin-bottom:12px"></div>
           <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:8px;border:2px solid" id="weightTotalRow">
             <span style="font-size:13px;font-weight:700">Total Weight</span>
@@ -1209,13 +1209,13 @@
         <div id="bnaDataConfidence" style="display:none;padding:8px 12px;border:1px solid;border-radius:6px;font-size:12px;font-weight:600;margin-bottom:16px"></div>
 
         <!-- Tier 1: Claude-scored factors -->
-        <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px">
+        <div style="font-size:15px;font-weight:800;color:var(--blue);margin-bottom:12px;letter-spacing:0.2px">
           🤖 Tier 1 — Auto-Scored from Documents
         </div>
-        <div id="bnaFactorsTier1" style="margin-bottom:20px"></div>
+        <div id="bnaFactorsTier1" style="margin-bottom:24px"></div>
 
         <!-- Tier 2: Human-scored factors -->
-        <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px">
+        <div style="font-size:15px;font-weight:800;color:#7c3aed;margin-bottom:4px;letter-spacing:0.2px">
           ✍️ Tier 2 — Your Assessment (adjusts score live)
         </div>
         <p style="font-size:12px;color:var(--muted);margin-bottom:12px">These factors require internal knowledge only you have. Set each 0–10 using the anchors as guides. Score updates as you adjust.</p>
@@ -2108,7 +2108,32 @@ function setProgress(pct, steps) {
   _currentPct = pct;
 
   if (pct > 0 && pct < 100 && !_genStartTime) _startEtaTimer();
-  if (pct >= 100 || pct === 0) { _clearEtaTimer(); _genStartTime = null; _totalEstSecs = null; }
+  if (pct >= 100 || pct === 0) {
+    _clearEtaTimer(); _genStartTime = null; _totalEstSecs = null;
+    if (pct >= 100) {
+      // Eased animation to 100%
+      const startPct = _currentPct;
+      const startTime = performance.now();
+      const dur = 500;
+      const anim = (now) => {
+        const t = Math.min((now - startTime) / dur, 1);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const cur = startPct + (100 - startPct) * eased;
+        const f2 = document.getElementById('gsbFill'); if (f2) f2.style.width = cur + '%';
+        const p2 = document.getElementById('gsbPct');  if (p2) p2.textContent = Math.round(cur) + '%';
+        const m2 = document.getElementById('gsbMinFill'); if (m2) m2.style.width = cur + '%';
+        const n2 = document.getElementById('gsbMinPct');  if (n2) n2.textContent = Math.round(cur) + '%';
+        if (t < 1) requestAnimationFrame(anim);
+        else {
+          const e2 = document.getElementById('gsbEta'); if (e2) e2.textContent = 'Complete';
+          const me = document.getElementById('gsbMinEta'); if (me) me.textContent = 'Complete';
+        }
+      };
+      requestAnimationFrame(anim);
+      _currentPct = 100;
+      return; // skip the direct assignment below
+    }
+  }
 
   // Always ensure global bar is visible when progress is active
   const bar = document.getElementById('globalStatusBar');
@@ -2142,39 +2167,37 @@ function setProgress(pct, steps) {
 // Soft-advance: nudge progress forward visually between hard milestones
 // so the bar doesn't appear frozen
 function _nudgeProgress() {
-  if (!_genStartTime || _currentPct >= 99) return;
+  if (!_genStartTime || _currentPct >= 91) return;
 
   const fill  = document.getElementById('gsbFill');
   const pctEl = document.getElementById('gsbPct');
   const etaEl = document.getElementById('gsbEta');
+  const minF  = document.getElementById('gsbMinFill');
+  const minP  = document.getElementById('gsbMinPct');
   if (!fill) return;
 
-  // Nudge slowly toward (target + some headroom) — never past 99
-  const softCeiling = Math.min(_targetPct + 8, 99);
-  if (_currentPct < softCeiling) {
-    // Slow logarithmic crawl — accelerates at first then slows
-    const gap = softCeiling - _currentPct;
-    _currentPct += Math.max(0.05, gap * 0.025);
-    _currentPct = Math.min(_currentPct, softCeiling);
+  if (_totalEstSecs !== null) {
+    const elapsed      = (Date.now() - _genStartTime) / 1000;
+    const elapsedRatio = Math.min(elapsed / _totalEstSecs, 1);
+    // sqrt curve: fast start, slows near end — never exceeds 91% until done
+    const targetPct = 3 + Math.sqrt(elapsedRatio) * 88;
+    _currentPct = Math.max(_currentPct, Math.min(targetPct, 91));
     fill.style.width = _currentPct + '%';
     if (pctEl) pctEl.textContent = Math.round(_currentPct) + '%';
-    // Sync minimized strip
-    const minF = document.getElementById('gsbMinFill');
-    const minP = document.getElementById('gsbMinPct');
-    if (minF) minF.style.width = _currentPct + '%';
-    if (minP) minP.textContent = Math.round(_currentPct) + '%';
-  }
+    if (minF)  minF.style.width  = _currentPct + '%';
+    if (minP)  minP.textContent  = Math.round(_currentPct) + '%';
 
-  // ETA: count DOWN from estimated total based on elapsed
-  if (etaEl && _totalEstSecs !== null) {
-    const elapsed   = (Date.now() - _genStartTime) / 1000;
-    const remaining = Math.max(0, _totalEstSecs - elapsed);
-    if (remaining <= 0) {
-      etaEl.textContent = 'Almost done…';
-    } else {
-      const mins = Math.floor(remaining / 60);
-      const secs = Math.round(remaining % 60);
-      etaEl.textContent = mins > 0 ? `~${mins}m ${secs}s remaining` : `~${secs}s remaining`;
+    // Self-calibrating ETA: extend if we've run long
+    const effectiveTotal = Math.max(_totalEstSecs, elapsed * 1.15);
+    const remaining = Math.max(0, effectiveTotal - elapsed);
+    if (etaEl) {
+      const minE = document.getElementById('gsbMinEta');
+      const etaTxt = remaining > 60
+        ? `~${Math.floor(remaining/60)}m ${Math.round(remaining%60)}s remaining`
+        : remaining > 2 ? `~${Math.round(remaining)}s remaining`
+        : 'Almost done…';
+      etaEl.textContent = etaTxt;
+      if (minE) minE.textContent = etaTxt;
     }
   }
 }
@@ -4589,6 +4612,7 @@ window.addEventListener('DOMContentLoaded', () => {
   initDropZone('dropZoneBNA',        'fileInputBNA',        bnaFiles,        'fileListBNA');
   initDropZone('dropZoneBNADocs',    'fileInputBNADocs',    bnaCompanyFiles, 'fileListBNADocs');
   initBnaWeights();
+  renderWeightEditor(); // editor starts expanded — render immediately
   updateStepLocks();
   restoreSession();
   const savedTab = sessionStorage.getItem('srfed_active_tab');
@@ -4840,7 +4864,7 @@ function toggleWeightEditor() {
   const open = body.style.display !== 'none';
   body.style.display = open ? 'none' : 'block';
   if (toggle) toggle.textContent = open ? '▼ expand' : '▲ collapse';
-  if (!open) renderWeightEditor(); // render on first open
+  if (!open) renderWeightEditor(); // render if just opened
 }
 
 function getEffectiveWeights() {
@@ -4986,33 +5010,53 @@ function _ensureBnaProgressVisible() {
 
 function startBnaEta(totalSecs) {
   if (_bnaEtaInterval) clearInterval(_bnaEtaInterval);
-  _bnaStart = Date.now();
+  _bnaStart     = Date.now();
   _bnaTotalSecs = totalSecs;
-  _bnaPct = 5;
+  _bnaPct       = 3;
   _ensureBnaProgressVisible();
-  setBnaProgress(5, `~${totalSecs}s remaining`);
+  setBnaProgress(3, `~${totalSecs}s remaining`);
+
   _bnaEtaInterval = setInterval(() => {
-    const elapsed = (Date.now() - _bnaStart) / 1000;
-    const remaining = Math.max(0, _bnaTotalSecs - elapsed);
-    const softCeil = Math.min(90, 5 + (elapsed / _bnaTotalSecs) * 85);
-    _bnaPct = Math.min(softCeil, _bnaPct + 0.5);
-    const etaTxt = remaining > 0
-      ? (remaining > 60 ? `~${Math.floor(remaining/60)}m ${Math.round(remaining%60)}s remaining` : `~${Math.round(remaining)}s remaining`)
+    const elapsed   = (Date.now() - _bnaStart) / 1000;
+    const estTotal  = _bnaTotalSecs;
+
+    // Progress: use sqrt curve so it advances fast early, slows near end.
+    // Never cap below current elapsed ratio — always reflect real time passing.
+    const elapsedRatio = Math.min(elapsed / estTotal, 1);
+    const targetPct    = 3 + Math.sqrt(elapsedRatio) * 88; // 3% → 91% max
+    // Nudge toward target (never go backward)
+    _bnaPct = Math.max(_bnaPct, Math.min(targetPct, 91));
+
+    // ETA: re-estimate based on actual elapsed if we're over the original estimate
+    const effectiveTotal = Math.max(estTotal, elapsed * 1.15); // always at least 15% more time
+    const remaining = Math.max(0, effectiveTotal - elapsed);
+    const etaTxt = remaining > 60
+      ? `~${Math.floor(remaining/60)}m ${Math.round(remaining%60)}s remaining`
+      : remaining > 2 ? `~${Math.round(remaining)}s remaining`
       : 'Almost done…';
+
     setBnaProgress(_bnaPct, etaTxt);
-  }, 800);
+  }, 500);
 }
 
 function stopBnaEta() {
   if (_bnaEtaInterval) { clearInterval(_bnaEtaInterval); _bnaEtaInterval = null; }
-  // Animate smoothly to 100%
+  // Animate smoothly to 100% over ~600ms using eased steps
   let cur = _bnaPct;
-  const step = () => {
-    cur = Math.min(cur + 5, 100);
-    setBnaProgress(cur, cur >= 100 ? 'Complete' : '');
-    if (cur < 100) requestAnimationFrame(step);
+  const target = 100;
+  const startTime = performance.now();
+  const duration  = 600; // ms
+
+  const animate = (now) => {
+    const t = Math.min((now - startTime) / duration, 1);
+    // Ease-out cubic: decelerates into 100%
+    const eased = 1 - Math.pow(1 - t, 3);
+    cur = _bnaPct + (target - _bnaPct) * eased;
+    setBnaProgress(Math.round(cur), t < 1 ? '' : 'Complete');
+    if (t < 1) requestAnimationFrame(animate);
+    else setBnaProgress(100, 'Complete');
   };
-  requestAnimationFrame(step);
+  requestAnimationFrame(animate);
 }
 
 async function runBidNoBid() {
@@ -5070,15 +5114,15 @@ async function runBidNoBid() {
       `- summary: 3-4 sentences with your overall bid/no-bid recommendation and key reasoning\n\n` +
       `{"data_confidence":"${hasCompanyDocs ? 'HIGH' : 'LOW'}",` +
       `"factors":{` +
-      `"technical_capability":{"score":REPLACE_WITH_SCORE,"rationale":"REPLACE_WITH_SPECIFIC_RATIONALE"},` +
-      `"competition":{"score":REPLACE_WITH_SCORE,"rationale":"REPLACE_WITH_SPECIFIC_RATIONALE"},` +
-      `"past_performance":{"score":REPLACE_WITH_SCORE,"rationale":"REPLACE_WITH_SPECIFIC_RATIONALE"},` +
-      `"eligibility":{"score":REPLACE_WITH_SCORE,"rationale":"REPLACE_WITH_SPECIFIC_RATIONALE"},` +
-      `"strategic_value":{"score":REPLACE_WITH_SCORE,"rationale":"REPLACE_WITH_SPECIFIC_RATIONALE"},` +
-      `"scope_clarity":{"score":REPLACE_WITH_SCORE,"rationale":"REPLACE_WITH_SPECIFIC_RATIONALE"}},` +
-      `"risks":["REPLACE_WITH_SPECIFIC_RISK_1","REPLACE_WITH_SPECIFIC_RISK_2","REPLACE_WITH_SPECIFIC_RISK_3"],` +
-      `"win_strategy":["REPLACE_WITH_SPECIFIC_STRATEGY_1","REPLACE_WITH_SPECIFIC_STRATEGY_2","REPLACE_WITH_SPECIFIC_STRATEGY_3"],` +
-      `"summary":"REPLACE_WITH_SPECIFIC_SUMMARY"}`
+      `"technical_capability":{"score":7,"rationale":"SRFed has direct relevant experience per attached past performance. SOW scope aligns with core capabilities."},` +
+      `"competition":{"score":6,"rationale":"Small business set-aside with no stated incumbent. Moderate competition expected in this NAICS."},` +
+      `"past_performance":{"score":8,"rationale":"Attached references show directly relevant contracts with similar scope and clearance requirements."},` +
+      `"eligibility":{"score":10,"rationale":"100 percent SDVOSB set-aside. SRFed is a verified SDVOSB. Perfect eligibility match."},` +
+      `"strategic_value":{"score":7,"rationale":"Multi-year contract with recompete potential. Target agency and mission area for SRFed growth."},` +
+      `"scope_clarity":{"score":8,"rationale":"PWS is well-defined with specific task areas, FTE counts by LCAT, and clear deliverables."}},` +
+      `"risks":["risk specific to this solicitation based on document content","second specific risk from document","third specific risk from document"],` +
+      `"win_strategy":["specific strategy based on this solicitation","second strategy","third strategy"],` +
+      `"summary":"Two to three sentences summarizing the overall bid or no-bid recommendation with key reasoning based on the actual solicitation content."}`
     });
 
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -5108,6 +5152,14 @@ async function runBidNoBid() {
     jsonStr = jsonStr.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ' ');
     // 2. Fix Windows line endings
     jsonStr = jsonStr.replace(/\r\n/g, ' ').replace(/\r/g, ' ');
+    // 3. Replace smart quotes and em-dashes that break JSON parsing
+    jsonStr = jsonStr
+      .replace(/[\u2018\u2019]/g, "'")   // smart single quotes -> straight
+      .replace(/[\u201C\u201D]/g, '"')   // smart double quotes -> straight (may need further repair)
+      .replace(/\u2014/g, ' - ')         // em-dash -> hyphen
+      .replace(/\u2013/g, '-')           // en-dash -> hyphen
+      .replace(/\u2026/g, '...')         // ellipsis -> dots
+      .replace(/[\u00A0]/g, ' ');        // non-breaking space -> regular space
     // 3. Try parse — if it fails, do targeted repair
     let result;
     try {
@@ -5325,15 +5377,15 @@ async function extractOpportunityIntel(docContent, apiKey) {
   const prompt = `You are analyzing a US Government solicitation document for South River Federal Solutions (SRFed), an SDVOSB.\n\n` +
     `CRITICAL RULES:\n` +
     `1. Use VERBATIM text from the document for all fields — do not paraphrase, expand, or infer the title or ID. Copy them exactly.\n` +
-    `2. For customer_agency: list BOTH the specific office (verbatim from document) AND its parent department/service branch with standard abbreviation. Format: "SPECIFIC OFFICE NAME — PARENT DEPARTMENT (ABBREV)". Examples: "Naval Surface Warfare Center Dahlgren Division (NSWCDD) — Department of the Navy (DON)", "Defense Logistics Agency J7 (DLA J7) — Department of Defense (DoD)", "Walter Reed National Military Medical Center — Department of the Army (DA)", "Defense Health Agency (DHA) — Department of Defense (DoD)". Common abbreviations: Army=DA, Navy=DON, Air Force=DAF, Marines=USMC, Space Force=USSF, Defense agencies=DoD, VA=VA, DHS=DHS, DOS=DoS, DOJ=DOJ.\n` +
+    `2. For customer_agency: list BOTH the specific office (verbatim from document) AND its parent department/service branch with standard abbreviation. Format: "SPECIFIC OFFICE NAME - PARENT DEPARTMENT (ABBREV)". Examples: "Naval Surface Warfare Center Dahlgren Division (NSWCDD) - Department of the Navy (DON)", "Defense Logistics Agency J7 (DLA J7) - Department of Defense (DoD)", "Walter Reed National Military Medical Center - Department of the Army (DA)", "Defense Health Agency (DHA) - Department of Defense (DoD)". Common abbreviations: Army=DA, Navy=DON, Air Force=DAF, Marines=USMC, Space Force=USSF, Defense agencies=DoD, VA=VA, DHS=DHS, DOS=DoS, DOJ=DOJ.\n` +
     `3. For requirement_name: copy the EXACT title from the solicitation cover page — do not reword or expand it.\n` +
     `4. If a field is not explicitly stated, use "Not stated in documents". Only use [Inferred] prefix when making a genuinely reasonable inference that is not directly stated.\n` +
     `5. For stage: look for explicit language like "Request for Quotation", "Request for Proposal", "Sources Sought", "Request for Information".\n` +
     `6. For labor_categories: list EVERY labor category or position title mentioned anywhere in the solicitation (PWS, staffing plan, Section B, wage determinations, attachments). Sort them alphabetically by lcat name.\n` +
     `7. For is_sca: set to true ONLY if the solicitation explicitly states this position falls under the Service Contract Act or references a Wage Determination for it. Set to false if no SCA language applies.\n` +
-    `8. For min_hourly_rate: ONLY populate this if the solicitation or an attached Wage Determination EXPLICITLY states the exact dollar amount for this LCAT. If no rate is stated verbatim, use "" (empty string). Do NOT estimate, infer, or look up WD rates — only copy exact figures from the document.\n\n` +
+    `8. For min_hourly_rate: ONLY populate this if the solicitation or an attached Wage Determination EXPLICITLY states the exact dollar amount for this LCAT. If no rate is stated verbatim, use "" (empty string). Do NOT estimate, infer, or look up WD rates - only copy exact figures from the document.\n\n` +
     `Respond with ONLY a raw JSON object. No markdown. No backticks. Start with { end with }.\n\n` +
-    `{"customer_agency":"EXACT office — Parent Dept (ABBREV)","requirement_name":"EXACT verbatim title from document","id_number":"exact solicitation/RFQ/RFP number","stage":"exact stage type","next_due_date":"","opportunity_url":"","description":"2-3 sentence description in your own words","fte_count":"","contract_years":"","place_of_performance":"","work_setting":"","period_of_performance":"","last_possible_performance_date":"","facility_clearance_required":"","personnel_clearance_required":"","set_aside":"","contract_vehicle":"","ko_name_office":"","cor_name_office":"","naics_code":"","sin":"","psc":"","base_year_value":"","total_contract_value":"","award_value_rationale":"","new_or_recompete":"","incumbent":"","contract_type":"","certifications_required":[],"labor_categories":[{"lcat":"Exact Labor Category Title","key_personnel":false,"is_sca":false,"min_hourly_rate":"","clearance":"","experience_yrs":"","education":"","base_year_fte":"","notes":""}],"pursuit_recommendation":"prime/sub/pass with brief rationale"}`;
+    `{"customer_agency":"EXACT office - Parent Dept (ABBREV)","requirement_name":"EXACT verbatim title from document","id_number":"exact solicitation/RFQ/RFP number","stage":"exact stage type","next_due_date":"","opportunity_url":"","description":"2-3 sentence description in your own words","fte_count":"","contract_years":"","place_of_performance":"","work_setting":"","period_of_performance":"","last_possible_performance_date":"","facility_clearance_required":"","personnel_clearance_required":"","set_aside":"","contract_vehicle":"","ko_name_office":"","cor_name_office":"","naics_code":"","sin":"","psc":"","base_year_value":"","total_contract_value":"","award_value_rationale":"","new_or_recompete":"","incumbent":"","contract_type":"","certifications_required":[],"labor_categories":[{"lcat":"Exact Labor Category Title","key_personnel":false,"is_sca":false,"min_hourly_rate":"","clearance":"","experience_yrs":"","education":"","base_year_fte":"","notes":""}],"pursuit_recommendation":"prime/sub/pass with brief rationale"}`;
 
   const content = [...docContent, { type: 'text', text: prompt }];
 
@@ -5354,7 +5406,28 @@ async function extractOpportunityIntel(docContent, apiKey) {
     if (!m) throw new Error('No JSON in response');
     let jsonStr = m[0];
     if (!jsonStr.endsWith('}')) { const lb=jsonStr.lastIndexOf('}'); if(lb>0) jsonStr=jsonStr.substring(0,lb+1); }
-    const intel = JSON.parse(jsonStr);
+    // Sanitize — same pipeline as BNA scoring
+    jsonStr = jsonStr
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ' ')
+      .replace(/\r\n/g, ' ').replace(/\r/g, ' ')
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/\u2014/g, ' - ')
+      .replace(/\u2013/g, '-')
+      .replace(/\u2026/g, '...')
+      .replace(/[\u00A0]/g, ' ');
+    // Try parse; on failure repair newlines inside strings then retry
+    let intel;
+    try {
+      intel = JSON.parse(jsonStr);
+    } catch(e1) {
+      jsonStr = jsonStr.replace(/("(?:[^"\\]|\\.)*")/g, s => s.replace(/\n/g,' ').replace(/\t/g,' '));
+      try {
+        intel = JSON.parse(jsonStr);
+      } catch(e2) {
+        throw new Error(`JSON parse failed: ${e2.message}. Raw (first 200 chars): ${jsonStr.substring(0,200)}`);
+      }
+    }
     window._lastBnaIntel = intel;
     renderOpportunityIntel(intel, body);
     stopBnaEta();
