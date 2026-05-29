@@ -1194,18 +1194,6 @@
       </div>
       <div class="card-body">
 
-        <!-- Verdict banner — shown immediately after analysis runs -->
-        <div id="bnaVerdictBanner" style="display:none;border-radius:8px;padding:16px 20px;margin-bottom:16px;align-items:flex-start;gap:20px">
-          <div style="text-align:center;min-width:90px;flex-shrink:0">
-            <div id="bnaScore" style="font-size:56px;font-weight:900;line-height:1">—</div>
-            <div style="font-size:11px;color:inherit;opacity:0.75;margin-top:2px">/ 10 weighted</div>
-          </div>
-          <div style="flex:1">
-            <div id="bnaVerdict" style="font-size:20px;font-weight:800;margin-bottom:6px">—</div>
-            <div id="bnaSummary" style="font-size:13px;opacity:0.9;line-height:1.6">—</div>
-          </div>
-        </div>
-
         <div id="bnaDataConfidence" style="display:none;padding:8px 12px;border:1px solid;border-radius:6px;font-size:12px;font-weight:600;margin-bottom:16px"></div>
 
         <!-- Tier 1: Claude-scored factors -->
@@ -1218,8 +1206,20 @@
         <div style="font-size:15px;font-weight:800;color:#7c3aed;margin-bottom:4px;letter-spacing:0.2px">
           ✍️ Tier 2 — Your Assessment (adjusts score live)
         </div>
-        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">These factors require internal knowledge only you have. Set each 0–10 using the anchors as guides. Score updates as you adjust.</p>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">These factors require internal knowledge only you have. Set each 0-10 using the anchors as guides.</p>
         <div id="bnaFactorsTier2" style="margin-bottom:20px"></div>
+
+        <!-- Verdict banner — shown after user confirms Tier 2 -->
+        <div id="bnaVerdictBanner" style="display:none;border-radius:8px;padding:16px 20px;margin-bottom:16px;align-items:flex-start;gap:20px">
+          <div style="text-align:center;min-width:90px;flex-shrink:0">
+            <div id="bnaScore" style="font-size:56px;font-weight:900;line-height:1">—</div>
+            <div style="font-size:11px;color:inherit;opacity:0.75;margin-top:2px">/ 10 weighted</div>
+          </div>
+          <div style="flex:1">
+            <div id="bnaVerdict" style="font-size:20px;font-weight:800;margin-bottom:8px">—</div>
+            <div id="bnaSummary" style="font-size:13px;line-height:1.7;opacity:0.95">—</div>
+          </div>
+        </div>
 
         <!-- Score breakdown — hidden until user confirms Tier 2 -->
         <div id="bnaScoreBreakdown" style="display:none;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:20px">
@@ -2187,15 +2187,13 @@ function _nudgeProgress() {
     if (minF)  minF.style.width  = _currentPct + '%';
     if (minP)  minP.textContent  = Math.round(_currentPct) + '%';
 
-    // Self-calibrating ETA: extend if we've run long
-    const effectiveTotal = Math.max(_totalEstSecs, elapsed * 1.15);
-    const remaining = Math.max(0, effectiveTotal - elapsed);
+    // ETA: once we're near the end, just say "Almost done..."
     if (etaEl) {
       const minE = document.getElementById('gsbMinEta');
-      const etaTxt = remaining > 60
-        ? `~${Math.floor(remaining/60)}m ${Math.round(remaining%60)}s remaining`
-        : remaining > 2 ? `~${Math.round(remaining)}s remaining`
-        : 'Almost done…';
+      const remaining = Math.max(0, _totalEstSecs - elapsed);
+      const etaTxt = elapsed >= _totalEstSecs * 0.9 ? 'Almost done...'
+        : remaining > 60 ? `~${Math.floor(remaining/60)}m ${Math.round(remaining%60)}s remaining`
+        : `~${Math.round(remaining)}s remaining`;
       etaEl.textContent = etaTxt;
       if (minE) minE.textContent = etaTxt;
     }
@@ -5027,13 +5025,11 @@ function startBnaEta(totalSecs) {
     // Nudge toward target (never go backward)
     _bnaPct = Math.max(_bnaPct, Math.min(targetPct, 91));
 
-    // ETA: re-estimate based on actual elapsed if we're over the original estimate
-    const effectiveTotal = Math.max(estTotal, elapsed * 1.15); // always at least 15% more time
-    const remaining = Math.max(0, effectiveTotal - elapsed);
-    const etaTxt = remaining > 60
-      ? `~${Math.floor(remaining/60)}m ${Math.round(remaining%60)}s remaining`
-      : remaining > 2 ? `~${Math.round(remaining)}s remaining`
-      : 'Almost done…';
+    // ETA: once near end, just say Almost done
+    const remaining = Math.max(0, estTotal - elapsed);
+    const etaTxt = elapsed >= estTotal * 0.9 ? 'Almost done...'
+      : remaining > 60 ? `~${Math.floor(remaining/60)}m ${Math.round(remaining%60)}s remaining`
+      : `~${Math.round(remaining)}s remaining`;
 
     setBnaProgress(_bnaPct, etaTxt);
   }, 500);
@@ -5097,32 +5093,21 @@ async function runBidNoBid() {
       (hasCompanyDocs
         ? `COMPANY DOCUMENTS: Use the attached past performance and capability documents to score technical capability, past performance, and eligibility. Cite specific evidence in your rationales.\n\n`
         : `NOTE: No company documents provided. Use the company profile above for technical/PP scoring; note uncertainty in rationales.\n\n`) +
-      `TASK: Read the solicitation documents carefully and score each of the 6 factors below from 0 to 10. ` +
-      `Be specific and analytical — do not use placeholder language. ` +
-      `Your rationale for each factor must reference specific content from the solicitation (e.g. set-aside type, page limits, NAICS code, scope language, past performance requirements).\n\n` +
+      `TASK: Read the solicitation documents carefully and score each of the 6 factors from 0 to 10.\n\n` +
       `SCORING GUIDANCE:\n` +
-      `- technical_capability: Does SRFed have the technical skills, personnel, and experience this SOW requires? Score high if strong direct match, low if significant gaps.\n` +
-      `- competition: How competitive is the landscape? Score high if sole-source eligible or incumbent, low if many large incumbents or unknown competition.\n` +
-      `- past_performance: Do SRFed references match this solicitation in scope, size, and agency type? Score based on actual relevance.\n` +
-      `- eligibility: Is this set-aside type one SRFed qualifies for (SDVOSB, small business, etc.)? Score 10 if perfect match, 0 if ineligible.\n` +
-      `- strategic_value: Does winning this align with SRFed growth goals? Consider contract value, recompete potential, agency relationships.\n` +
-      `- scope_clarity: How well-defined is the scope? Score high if clear requirements, low if vague or underdeveloped PWS.\n\n` +
-      `REQUIRED OUTPUT — respond with ONLY a JSON object. No markdown, no backticks, no preamble. Rules:\n` +
-      `- Every string value must be plain ASCII with no embedded quotes or backslashes\n` +
-      `- risks: provide 3-5 SPECIFIC risks from this solicitation (not generic BD risks)\n` +
-      `- win_strategy: provide 3-5 SPECIFIC strategies tailored to this opportunity\n` +
-      `- summary: 3-4 sentences with your overall bid/no-bid recommendation and key reasoning\n\n` +
-      `{"data_confidence":"${hasCompanyDocs ? 'HIGH' : 'LOW'}",` +
-      `"factors":{` +
-      `"technical_capability":{"score":7,"rationale":"SRFed has direct relevant experience per attached past performance. SOW scope aligns with core capabilities."},` +
-      `"competition":{"score":6,"rationale":"Small business set-aside with no stated incumbent. Moderate competition expected in this NAICS."},` +
-      `"past_performance":{"score":8,"rationale":"Attached references show directly relevant contracts with similar scope and clearance requirements."},` +
-      `"eligibility":{"score":10,"rationale":"100 percent SDVOSB set-aside. SRFed is a verified SDVOSB. Perfect eligibility match."},` +
-      `"strategic_value":{"score":7,"rationale":"Multi-year contract with recompete potential. Target agency and mission area for SRFed growth."},` +
-      `"scope_clarity":{"score":8,"rationale":"PWS is well-defined with specific task areas, FTE counts by LCAT, and clear deliverables."}},` +
-      `"risks":["risk specific to this solicitation based on document content","second specific risk from document","third specific risk from document"],` +
-      `"win_strategy":["specific strategy based on this solicitation","second strategy","third strategy"],` +
-      `"summary":"Two to three sentences summarizing the overall bid or no-bid recommendation with key reasoning based on the actual solicitation content."}`
+      `- technical_capability: Does ${CLIENT_CONFIG.companyShortName} have the technical skills, personnel, and experience this SOW requires?\n` +
+      `- competition: How competitive is the landscape? Score high if sole-source eligible or incumbent advantage, low if many competitors.\n` +
+      `- past_performance: Do references match this solicitation in scope, size, and agency type?\n` +
+      `- eligibility: Does the set-aside type match ${CLIENT_CONFIG.companyShortName} certifications? Score 10 if perfect match, 0 if ineligible.\n` +
+      `- strategic_value: Does winning align with growth goals? Consider contract value, recompete potential, agency relationships.\n` +
+      `- scope_clarity: How well-defined is the scope? Score high if clear requirements, low if vague PWS.\n\n` +
+      `OUTPUT RULES — complete the JSON object below with REAL content from the documents:\n` +
+      `- Each rationale: 2-3 sentences citing SPECIFIC evidence from the solicitation (section numbers, NAICS, set-aside type, FTE counts, clearance levels, etc.). NO generic statements.\n` +
+      `- risks: 3-5 items citing SPECIFIC risks found in this solicitation (incumbent language, certification requirements, evaluation criteria, timeline constraints, etc.)\n` +
+      `- win_strategy: 3-5 SPECIFIC strategies for THIS opportunity based on the solicitation requirements\n` +
+      `- summary: 3-4 sentences of analytical narrative explaining the overall score and bid/no-bid rationale\n` +
+      `- Use only plain ASCII text. No em-dashes, no smart quotes, no backslashes.\n\n` +
+      `Respond with ONLY the completed JSON. No markdown. No preamble.`
     });
 
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -5131,16 +5116,22 @@ async function runBidNoBid() {
         'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 2500,
-        temperature: 0,   // deterministic — same docs = same scores every time
-        messages: [{ role: 'user', content }]
+        max_tokens: 3000,
+        temperature: 0,
+        messages: [
+          { role: 'user', content },
+          // Prefill forces Claude to complete THIS JSON with real content — cannot echo a template
+          { role: 'assistant', content: `{"data_confidence":"${hasCompanyDocs ? 'HIGH' : 'LOW'}","factors":{` }
+        ]
       })
     });
     if (!resp.ok) throw new Error(`API error ${resp.status}: ${await resp.text().catch(()=>'')}`);
     const d = await resp.json();
-    let raw = d.content.map(c=>c.text||'').join('').trim()
-      .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim()
-      .replace(/^#+\s+[^\n]*\n/gm, '').trim();
+    // Prepend the assistant prefill so we have a complete JSON object
+    let raw = `{"data_confidence":"${hasCompanyDocs ? 'HIGH' : 'LOW'}","factors":{` +
+      d.content.map(c=>c.text||'').join('').trim()
+        .replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim()
+        .replace(/^#+\s+[^\n]*\n/gm, '').trim();
 
     // Extract the outermost JSON object
     const jsonMatch = raw.match(/\{[\s\S]+\}/);
@@ -5196,7 +5187,7 @@ async function runBidNoBid() {
           const ratM = jsonStr.match(new RegExp(`"${k}"\\s*:\\s*\\{[^}]*?"rationale"\\s*:\\s*"([^"]{0,300})"`));
           factors[k] = {
             score: score !== null ? score : 5,
-            rationale: ratM ? ratM[1] : 'See full analysis above'
+            rationale: ratM ? ratM[1] : ''
           };
         });
         result = {
@@ -5217,15 +5208,15 @@ async function runBidNoBid() {
       console.warn('All scores are 5 — likely a parse failure. Raw:', raw.substring(0, 300));
     }
 
-    // Clean up any unreplaced template placeholders in rationales
+    // Clean up only literal template placeholders (not real content)
     Object.values(factors).forEach(f => {
-      if (f && f.rationale && (f.rationale.includes('REPLACE_WITH') || f.rationale === 'your assessment here')) {
+      if (f && f.rationale && (f.rationale.includes('REPLACE_WITH') || f.rationale === 'your assessment here' || f.rationale === 'See full analysis above')) {
         f.rationale = '';
       }
     });
-    // Clean up placeholder risks/strategies
-    if (result.risks) result.risks = result.risks.filter(r => r && !r.includes('REPLACE_WITH') && !r.includes('specific risk'));
-    if (result.win_strategy) result.win_strategy = result.win_strategy.filter(w => w && !w.includes('REPLACE_WITH') && !w.includes('specific strategy'));
+    // Only strip items that are literally the template placeholder text
+    if (result.risks) result.risks = result.risks.filter(r => r && !r.includes('REPLACE_WITH'));
+    if (result.win_strategy) result.win_strategy = result.win_strategy.filter(w => w && !w.includes('REPLACE_WITH'));
 
     // Store tier 1 scores
     bna_tier1_scores = {};
@@ -5260,12 +5251,8 @@ async function runBidNoBid() {
       }).join('');
     }
 
-    // Show verdict banner immediately with Tier 1 preliminary score
-    // (Tier 2 defaults to 5 for all factors — user adjusts and confirms)
-    renderTier2Inputs();  // set default tier2 scores first
-    updateBnaLiveScore(); // compute preliminary total
-    const verdictBanner = document.getElementById('bnaVerdictBanner');
-    if (verdictBanner) verdictBanner.style.display = 'flex';
+    // Set up Tier 2 inputs with defaults — user will confirm to get final score
+    renderTier2Inputs();
 
     const confEl = document.getElementById('bnaDataConfidence');
     if (confEl) {
@@ -5384,7 +5371,8 @@ async function extractOpportunityIntel(docContent, apiKey) {
     `6. For labor_categories: list EVERY labor category or position title mentioned anywhere in the solicitation (PWS, staffing plan, Section B, wage determinations, attachments). Sort them alphabetically by lcat name.\n` +
     `7. For is_sca: set to true ONLY if the solicitation explicitly states this position falls under the Service Contract Act or references a Wage Determination for it. Set to false if no SCA language applies.\n` +
     `8. For min_hourly_rate: ONLY populate this if the solicitation or an attached Wage Determination EXPLICITLY states the exact dollar amount for this LCAT. If no rate is stated verbatim, use "" (empty string). Do NOT estimate, infer, or look up WD rates - only copy exact figures from the document.\n\n` +
-    `Respond with ONLY a raw JSON object. No markdown. No backticks. Start with { end with }.\n\n` +
+    `Respond with ONLY a raw JSON object. No markdown. No backticks. Start with { end with }.\n` +
+    `IMPORTANT: Use only plain ASCII in all string values. No special characters, no em-dashes, no smart quotes, no newlines inside strings.\n\n` +
     `{"customer_agency":"EXACT office - Parent Dept (ABBREV)","requirement_name":"EXACT verbatim title from document","id_number":"exact solicitation/RFQ/RFP number","stage":"exact stage type","next_due_date":"","opportunity_url":"","description":"2-3 sentence description in your own words","fte_count":"","contract_years":"","place_of_performance":"","work_setting":"","period_of_performance":"","last_possible_performance_date":"","facility_clearance_required":"","personnel_clearance_required":"","set_aside":"","contract_vehicle":"","ko_name_office":"","cor_name_office":"","naics_code":"","sin":"","psc":"","base_year_value":"","total_contract_value":"","award_value_rationale":"","new_or_recompete":"","incumbent":"","contract_type":"","certifications_required":[],"labor_categories":[{"lcat":"Exact Labor Category Title","key_personnel":false,"is_sca":false,"min_hourly_rate":"","clearance":"","experience_yrs":"","education":"","base_year_fte":"","notes":""}],"pursuit_recommendation":"prime/sub/pass with brief rationale"}`;
 
   const content = [...docContent, { type: 'text', text: prompt }];
@@ -5394,7 +5382,8 @@ async function extractOpportunityIntel(docContent, apiKey) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey,
         'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 3000,
+      body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 4000,
+        temperature: 0,
         messages: [{ role: 'user', content }] })
     });
     if (!resp.ok) throw new Error(`API ${resp.status}`);
@@ -5406,26 +5395,31 @@ async function extractOpportunityIntel(docContent, apiKey) {
     if (!m) throw new Error('No JSON in response');
     let jsonStr = m[0];
     if (!jsonStr.endsWith('}')) { const lb=jsonStr.lastIndexOf('}'); if(lb>0) jsonStr=jsonStr.substring(0,lb+1); }
-    // Sanitize — same pipeline as BNA scoring
+
+    // ── Stage 1: Full sanitization ───────────────────────────────────────────
     jsonStr = jsonStr
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ' ')
-      .replace(/\r\n/g, ' ').replace(/\r/g, ' ')
-      .replace(/[\u2018\u2019]/g, "'")
-      .replace(/[\u201C\u201D]/g, '"')
-      .replace(/\u2014/g, ' - ')
-      .replace(/\u2013/g, '-')
-      .replace(/\u2026/g, '...')
-      .replace(/[\u00A0]/g, ' ');
-    // Try parse; on failure repair newlines inside strings then retry
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ' ')  // control chars
+      .replace(/\r\n/g, ' ').replace(/\r/g, ' ')             // line endings
+      .replace(/[\u2018\u2019]/g, "'")                        // smart single quotes
+      .replace(/[\u201C\u201D]/g, '\\"')                      // smart double quotes → escaped
+      .replace(/\u2014/g, ' - ').replace(/\u2013/g, '-')     // dashes
+      .replace(/\u2026/g, '...').replace(/[\u00A0]/g, ' ');  // misc
+
+    // ── Stage 2: Try strict parse ─────────────────────────────────────────────
     let intel;
     try {
       intel = JSON.parse(jsonStr);
     } catch(e1) {
-      jsonStr = jsonStr.replace(/("(?:[^"\\]|\\.)*")/g, s => s.replace(/\n/g,' ').replace(/\t/g,' '));
+      // ── Stage 3: Repair newlines/tabs inside string values then retry ────────
+      const repaired = jsonStr.replace(/("(?:[^"\\]|\\.)*")/g, s =>
+        s.replace(/\n/g,' ').replace(/\t/g,' ')
+      );
       try {
-        intel = JSON.parse(jsonStr);
+        intel = JSON.parse(repaired);
       } catch(e2) {
-        throw new Error(`JSON parse failed: ${e2.message}. Raw (first 200 chars): ${jsonStr.substring(0,200)}`);
+        // ── Stage 4: Field-by-field extraction — works even on malformed JSON ──
+        console.warn('Intel JSON strict parse failed, using field extractor. Error:', e2.message);
+        intel = extractIntelFields(jsonStr);
       }
     }
     window._lastBnaIntel = intel;
@@ -5439,6 +5433,93 @@ async function extractOpportunityIntel(docContent, apiKey) {
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = '📊 Extract Opportunity Details'; }
   }
+}
+
+// Robust field-by-field extractor for malformed intel JSON.
+// Extracts each known field using targeted regex — tolerates broken arrays and unescaped chars.
+function extractIntelFields(jsonStr) {
+  // Extract a simple string field: "key":"value"
+  const str = (key) => {
+    const m = jsonStr.match(new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`));
+    return m ? m[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\') : '';
+  };
+
+  // Extract a string array: "key":["a","b","c"]
+  // Works by finding the array brackets then pulling quoted strings from within
+  const arr = (key) => {
+    const m = jsonStr.match(new RegExp(`"${key}"\\s*:\\s*\\[([\\s\\S]*?)\\](?=[,}\\s])`));
+    if (!m) return [];
+    const inner = m[1];
+    const items = [];
+    const re = /"((?:[^"\\]|\\.)*)"/g;
+    let hit;
+    while ((hit = re.exec(inner)) !== null) {
+      const val = hit[1].replace(/\\"/g,'"').replace(/\\\\/g,'\\').trim();
+      if (val) items.push(val);
+    }
+    return items;
+  };
+
+  // Extract labor_categories array of objects
+  const laborCats = () => {
+    const m = jsonStr.match(/"labor_categories"\s*:\s*\[([\s\S]*?)\](?=[,}\s])/);
+    if (!m) return [];
+    const inner = m[1];
+    const objs = [];
+    // Split on object boundaries
+    const objRe = /\{([\s\S]*?)\}(?=[,\]\s])/g;
+    let om;
+    while ((om = objRe.exec(inner)) !== null) {
+      const obj = {};
+      const fieldRe = /"(\w+)"\s*:\s*("(?:[^"\\]|\\.)*"|true|false|null|\d+)/g;
+      let fm;
+      while ((fm = fieldRe.exec(om[1])) !== null) {
+        let val = fm[2];
+        if (val.startsWith('"')) val = val.slice(1,-1).replace(/\\"/g,'"');
+        else if (val === 'true') val = true;
+        else if (val === 'false') val = false;
+        else if (val === 'null') val = null;
+        else val = Number(val);
+        obj[fm[1]] = val;
+      }
+      if (obj.lcat || obj.labor_category) objs.push(obj);
+    }
+    return objs;
+  };
+
+  return {
+    customer_agency:               str('customer_agency'),
+    requirement_name:              str('requirement_name'),
+    id_number:                     str('id_number'),
+    stage:                         str('stage'),
+    next_due_date:                 str('next_due_date'),
+    opportunity_url:               str('opportunity_url'),
+    description:                   str('description'),
+    fte_count:                     str('fte_count'),
+    contract_years:                str('contract_years'),
+    place_of_performance:          str('place_of_performance'),
+    work_setting:                  str('work_setting'),
+    period_of_performance:         str('period_of_performance'),
+    last_possible_performance_date:str('last_possible_performance_date'),
+    facility_clearance_required:   str('facility_clearance_required'),
+    personnel_clearance_required:  str('personnel_clearance_required'),
+    set_aside:                     str('set_aside'),
+    contract_vehicle:              str('contract_vehicle'),
+    ko_name_office:                str('ko_name_office'),
+    cor_name_office:               str('cor_name_office'),
+    naics_code:                    str('naics_code'),
+    sin:                           str('sin'),
+    psc:                           str('psc'),
+    base_year_value:               str('base_year_value'),
+    total_contract_value:          str('total_contract_value'),
+    award_value_rationale:         str('award_value_rationale'),
+    new_or_recompete:              str('new_or_recompete'),
+    incumbent:                     str('incumbent'),
+    contract_type:                 str('contract_type'),
+    certifications_required:       arr('certifications_required'),
+    labor_categories:              laborCats(),
+    pursuit_recommendation:        str('pursuit_recommendation'),
+  };
 }
 
 function renderOpportunityIntel(intel, container) {
