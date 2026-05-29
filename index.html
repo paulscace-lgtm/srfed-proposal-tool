@@ -182,7 +182,6 @@
   .shalls-body {
     max-height: 320px; overflow-y: auto;
     padding: 12px 14px; background: white;
-    overscroll-behavior-y: contain;
   }
   .shall-item {
     font-size: 12px; color: var(--text); padding: 6px 0;
@@ -588,17 +587,17 @@
 </header>
 
 <!-- ══ GLOBAL STICKY STATUS / PROGRESS BAR (under header, all tabs) ══════ -->
-<div id="globalStatusBar" style="display:none;position:sticky;top:80px;z-index:150;background:white;border-bottom:2px solid var(--light-blue);box-shadow:0 2px 6px rgba(0,95,213,0.08)">
+<div id="globalStatusBar" style="display:none;position:fixed;top:80px;left:0;right:0;z-index:150;background:white;border-bottom:2px solid var(--light-blue);box-shadow:0 2px 8px rgba(0,95,213,0.12)">
   <div style="max-width:1100px;margin:0 auto;padding:10px 24px">
-    <div id="gsbInner" class="status-bar info" style="margin-bottom:0;border-radius:6px">
-      <div class="status-icon" id="gsbIcon">ℹ️</div>
+    <div id="gsbInner" class="status-bar info" style="margin-bottom:0;border-radius:6px;padding:10px 14px">
+      <div class="status-icon" id="gsbIcon" style="flex-shrink:0;font-size:16px">ℹ️</div>
       <div class="status-text" style="flex:1">
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <div class="status-title" id="gsbTitle"></div>
-          <button onclick="document.getElementById('globalStatusBar').style.display='none'" 
-            style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--muted);padding:0 0 0 12px;line-height:1" title="Dismiss">✕</button>
+          <div class="status-title" id="gsbTitle" style="font-size:13px;font-weight:700"></div>
+          <button onclick="_gsbHide()" 
+            style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--muted);padding:0 0 0 12px;line-height:1;flex-shrink:0" title="Dismiss">✕</button>
         </div>
-        <div id="gsbMsg" style="font-size:13px"></div>
+        <div id="gsbMsg" style="font-size:12px;margin-top:2px"></div>
         <div id="gsbProgressWrap" style="display:none;margin-top:8px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
             <span id="gsbPct" style="font-size:12px;font-weight:700;color:var(--blue)">0%</span>
@@ -2067,23 +2066,12 @@ function restoreApiKey() {
 
 // ─── STATUS / PROGRESS / UTILITIES ───────────────────────────────────────────
 function showStatus(type, title, msg, showProgress = false) {
-  const icons = { info: 'ℹ️', success: '✅', warn: '⚠️', error: '❌' };
-  const bar = document.getElementById('statusBar');
-  bar.className = `status-bar ${type}`;
-  bar.style.display = 'flex';
-  document.getElementById('statusIcon').textContent = icons[type] || 'ℹ️';
-  document.getElementById('statusTitle').textContent = title;
-  document.getElementById('statusMsg').textContent = msg;
-  const pw = document.getElementById('progressWrap');
-  pw.style.display = showProgress ? 'block' : 'none';
-  // Pulse when actively processing (info), stop when done or error
-  const fill = document.getElementById('progressFill');
-  if (fill) {
-    if (type === 'info' && showProgress) {
-      fill.classList.add('pulsing');
-    } else {
-      fill.classList.remove('pulsing');
-    }
+  // Route everything through the global sticky bar
+  if (typeof _gsb === 'function') {
+    _gsb(type, title, msg, showProgress);
+  } else {
+    // _gsb not yet defined (early call) — just show an alert for errors
+    if (type === 'error') console.error(title + ': ' + msg);
   }
 }
 
@@ -2101,16 +2089,22 @@ function setProgress(pct, steps) {
   if (pct > 0 && pct < 100 && !_genStartTime) _startEtaTimer();
   if (pct >= 100 || pct === 0) { _clearEtaTimer(); _genStartTime = null; _totalEstSecs = null; }
 
-  const fill  = document.getElementById('progressFill');
-  const pctEl = document.getElementById('progressPct');
-  const etaEl = document.getElementById('progressEta');
-  if (fill)  fill.style.width = pct + '%';
-  if (pctEl) pctEl.textContent = Math.round(pct) + '%';
+  // Always ensure global bar is visible when progress is active
+  const bar = document.getElementById('globalStatusBar');
+  if (bar && pct > 0) bar.style.display = 'block';
+  const pw = document.getElementById('gsbProgressWrap');
+  if (pw && pct > 0) pw.style.display = 'block';
+
+  const fill  = document.getElementById('gsbFill');
+  const pctEl = document.getElementById('gsbPct');
+  const etaEl = document.getElementById('gsbEta');
+  if (fill)  fill.style.width = Math.min(pct, 100) + '%';
+  if (pctEl) pctEl.textContent = Math.round(Math.min(pct, 100)) + '%';
   if (pct >= 100 && etaEl) etaEl.textContent = 'Complete';
   if (pct === 0  && etaEl) etaEl.textContent = '';
 
   if (steps && steps.length > 0) {
-    const stepsEl = document.getElementById('progressSteps');
+    const stepsEl = document.getElementById('gsbSteps');
     if (stepsEl) stepsEl.innerHTML = steps.map(s =>
       `<div class="progress-step ${s.status}">` +
       `<span class="step-icon">${s.status === 'done' ? '✅' : s.status === 'active' ? '<div class="spinner-dark" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle"></div>' : '○'}</span>` +
@@ -4864,12 +4858,44 @@ function _gsb(type, title, msg, showProgress) {
   const pw = document.getElementById('gsbProgressWrap');
   if (pw) pw.style.display = showProgress ? 'block' : 'none';
   bar.style.display = 'block';
+  // Push container down so content isn't hidden behind the fixed bar
+  const container = document.querySelector('.container');
+  if (container) container.style.paddingTop = (showProgress ? '130px' : '80px');
+}
+
+// Call when dismissing the bar to restore normal padding
+function _gsbHide() {
+  const bar = document.getElementById('globalStatusBar');
+  if (bar) bar.style.display = 'none';
+  const container = document.querySelector('.container');
+  if (container) container.style.paddingTop = ''; // restore CSS default (32px)
 }
 
 let _bnaEtaInterval = null;
 let _bnaStart = null;
 let _bnaTotalSecs = null;
 let _bnaPct = 0;
+
+// BNA helpers — thin wrappers around the global bar
+function showBnaStatus(type, title, msg, showProgress = false) {
+  showStatus(type, title, msg, showProgress);
+}
+function setBnaProgress(pct, etaText) {
+  const fill  = document.getElementById('gsbFill');
+  const pctEl = document.getElementById('gsbPct');
+  const etaEl = document.getElementById('gsbEta');
+  if (fill)  fill.style.width = Math.min(pct, 100) + '%';
+  if (pctEl) pctEl.textContent = Math.round(Math.min(pct, 100)) + '%';
+  if (etaEl && etaText !== undefined) etaEl.textContent = etaText;
+}
+function _ensureBnaProgressVisible() {
+  const pw  = document.getElementById('gsbProgressWrap');
+  const bar = document.getElementById('globalStatusBar');
+  if (pw)  pw.style.display  = 'block';
+  if (bar) bar.style.display = 'block';
+  const container = document.querySelector('.container');
+  if (container) container.style.paddingTop = '130px';
+}
 
 function startBnaEta(totalSecs) {
   if (_bnaEtaInterval) clearInterval(_bnaEtaInterval);
@@ -5343,11 +5369,14 @@ async function runSectionEdit() {
   const instruct = document.getElementById('editorInstructions')?.value.trim();
   const reqs     = document.getElementById('editorRequirements')?.value.trim();
 
-  if (!original) { alert('Paste the section text you want to rewrite.'); return; }
+  if (!original) { showStatus('warn', 'No content', 'Paste the section text you want to rewrite.'); return; }
 
   const btn = document.getElementById('editorRunBtn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle"></span> Rewriting…';
+  showStatus('info', 'Rewriting section…', 'Claude is revising your section. Takes ~20 seconds.', true);
+  setProgress(5, [{ text: 'Rewriting section', status: 'active' }]);
+  _startEtaTimer(25);
 
   try {
     const apiKey = getApiKey();
@@ -5376,8 +5405,11 @@ async function runSectionEdit() {
     document.getElementById('editorResultText').textContent = revised;
     document.getElementById('editorResults').style.display = 'block';
     document.getElementById('editorResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setProgress(100, [{ text: 'Rewriting section', status: 'done' }]);
+    showStatus('success', 'Section rewritten', 'Review the revised text below. Copy it or adjust your instructions and rerun.');
   } catch(e) {
-    alert(`Section edit failed: ${e.message}`);
+    showStatus('error', 'Section edit failed', e.message);
+    _clearEtaTimer();
   } finally {
     btn.disabled = false;
     btn.innerHTML = '✏️ Rewrite Section';
