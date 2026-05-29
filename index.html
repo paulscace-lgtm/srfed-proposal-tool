@@ -587,24 +587,42 @@
 </header>
 
 <!-- ══ GLOBAL STICKY STATUS / PROGRESS BAR (under header, all tabs) ══════ -->
-<div id="globalStatusBar" style="display:none;position:fixed;top:80px;left:0;right:0;z-index:150;background:white;border-bottom:2px solid var(--light-blue);box-shadow:0 2px 8px rgba(0,95,213,0.12)">
-  <div style="max-width:1100px;margin:0 auto;padding:10px 24px">
-    <div id="gsbInner" class="status-bar info" style="margin-bottom:0;border-radius:6px;padding:10px 14px">
-      <div class="status-icon" id="gsbIcon" style="flex-shrink:0;font-size:16px">ℹ️</div>
-      <div class="status-text" style="flex:1">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div class="status-title" id="gsbTitle" style="font-size:13px;font-weight:700"></div>
-          <button onclick="_gsbHide()" 
-            style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--muted);padding:0 0 0 12px;line-height:1;flex-shrink:0" title="Dismiss">✕</button>
-        </div>
-        <div id="gsbMsg" style="font-size:12px;margin-top:2px"></div>
-        <div id="gsbProgressWrap" style="display:none;margin-top:8px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-            <span id="gsbPct" style="font-size:12px;font-weight:700;color:var(--blue)">0%</span>
-            <span id="gsbEta" style="font-size:12px;color:var(--muted)"></span>
+<div id="globalStatusBar" style="display:none;position:fixed;top:80px;left:0;right:0;z-index:150;background:white;border-bottom:2px solid var(--light-blue);box-shadow:0 2px 8px rgba(0,95,213,0.12);transition:all 0.2s">
+  <div style="max-width:1100px;margin:0 auto;padding:8px 24px">
+    <!-- Minimized strip: just title + ETA on one line -->
+    <div id="gsbMinimized" style="display:none;align-items:center;gap:10px;cursor:pointer" onclick="_gsbExpand()" title="Click to expand">
+      <div id="gsbMinIcon" style="font-size:14px;flex-shrink:0">ℹ️</div>
+      <div id="gsbMinTitle" style="font-size:12px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+      <div style="width:120px;height:4px;background:#e2e8f0;border-radius:2px;flex-shrink:0;overflow:hidden">
+        <div id="gsbMinFill" style="height:100%;width:0%;background:var(--mid-blue);transition:width 0.4s;border-radius:2px"></div>
+      </div>
+      <div id="gsbMinPct" style="font-size:11px;font-weight:700;color:var(--blue);flex-shrink:0;min-width:28px;text-align:right">0%</div>
+      <div id="gsbMinEta" style="font-size:11px;color:var(--muted);flex-shrink:0"></div>
+      <span style="font-size:11px;color:var(--muted);padding:1px 6px;border:1px solid var(--border);border-radius:4px;flex-shrink:0">▼ show</span>
+    </div>
+    <!-- Full expanded view -->
+    <div id="gsbExpanded">
+      <div id="gsbInner" class="status-bar info" style="margin-bottom:0;border-radius:6px;padding:10px 14px">
+        <div class="status-icon" id="gsbIcon" style="flex-shrink:0;font-size:16px">ℹ️</div>
+        <div class="status-text" style="flex:1">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div class="status-title" id="gsbTitle" style="font-size:13px;font-weight:700"></div>
+            <div style="display:flex;gap:6px;flex-shrink:0">
+              <button onclick="_gsbMinimize()" 
+                style="background:none;border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:11px;color:var(--muted);padding:1px 7px;line-height:1.4" title="Minimize">▲ hide</button>
+              <button onclick="_gsbHide()" 
+                style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--muted);padding:0 0 0 4px;line-height:1" title="Dismiss">✕</button>
+            </div>
           </div>
-          <div class="progress-bar"><div class="progress-fill" id="gsbFill" style="width:0%"></div></div>
-          <div class="progress-steps" id="gsbSteps" style="margin-top:6px"></div>
+          <div id="gsbMsg" style="font-size:12px;margin-top:2px"></div>
+          <div id="gsbProgressWrap" style="display:none;margin-top:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <span id="gsbPct" style="font-size:12px;font-weight:700;color:var(--blue)">0%</span>
+              <span id="gsbEta" style="font-size:12px;color:var(--muted)"></span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" id="gsbFill" style="width:0%"></div></div>
+            <div class="progress-steps" id="gsbSteps" style="margin-top:6px"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -1209,12 +1227,12 @@
           <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px">
             <div style="text-align:center;flex:1;min-width:100px">
               <div id="tier1SubScore" style="font-size:24px;font-weight:800;color:var(--blue)">—</div>
-              <div style="font-size:11px;color:var(--muted)">Auto-scored (50%)</div>
+              <div id="tier1PctLabel" style="font-size:11px;color:var(--muted)">Auto-scored (50%)</div>
             </div>
             <div style="text-align:center;color:var(--muted);font-size:20px;display:flex;align-items:center">+</div>
             <div style="text-align:center;flex:1;min-width:100px">
               <div id="tier2SubScore" style="font-size:24px;font-weight:800;color:#7c3aed">—</div>
-              <div style="font-size:11px;color:var(--muted)">Your input (50%)</div>
+              <div id="tier2PctLabel" style="font-size:11px;color:var(--muted)">Your input (50%)</div>
             </div>
             <div style="text-align:center;color:var(--muted);font-size:20px;display:flex;align-items:center">=</div>
             <div style="text-align:center;flex:1;min-width:100px">
@@ -2095,11 +2113,16 @@ function setProgress(pct, steps) {
   const pw = document.getElementById('gsbProgressWrap');
   if (pw && pct > 0) pw.style.display = 'block';
 
+  const pctClamped = Math.min(pct, 100);
   const fill  = document.getElementById('gsbFill');
   const pctEl = document.getElementById('gsbPct');
   const etaEl = document.getElementById('gsbEta');
-  if (fill)  fill.style.width = Math.min(pct, 100) + '%';
-  if (pctEl) pctEl.textContent = Math.round(Math.min(pct, 100)) + '%';
+  const minF  = document.getElementById('gsbMinFill');
+  const minP  = document.getElementById('gsbMinPct');
+  if (fill)  fill.style.width = pctClamped + '%';
+  if (pctEl) pctEl.textContent = Math.round(pctClamped) + '%';
+  if (minF)  minF.style.width  = pctClamped + '%';
+  if (minP)  minP.textContent  = Math.round(pctClamped) + '%';
   if (pct >= 100 && etaEl) etaEl.textContent = 'Complete';
   if (pct === 0  && etaEl) etaEl.textContent = '';
 
@@ -2132,6 +2155,11 @@ function _nudgeProgress() {
     _currentPct = Math.min(_currentPct, softCeiling);
     fill.style.width = _currentPct + '%';
     if (pctEl) pctEl.textContent = Math.round(_currentPct) + '%';
+    // Sync minimized strip
+    const minF = document.getElementById('gsbMinFill');
+    const minP = document.getElementById('gsbMinPct');
+    if (minF) minF.style.width = _currentPct + '%';
+    if (minP) minP.textContent = Math.round(_currentPct) + '%';
   }
 
   // ETA: count DOWN from estimated total based on elapsed
@@ -4618,19 +4646,20 @@ async function loadBnaSPFiles() {
 
 // ── HYBRID BID/NO-BID MATRIX ──────────────────────────────────────────────────
 const BNA_TIER1 = [
-  { key:'technical_capability', label:'Background, Experience & Technical Capability', weight:0.10,
+  { key:'technical_capability', label:'Background, Experience & Technical Capability', weight:0.12,
     neg:'Weak experience or not qualified', mid:'Average in-house or importable capability', pos:'Strong in-house, technically superior' },
   { key:'competition',          label:'Competition & Market Position',                weight:0.10,
     neg:'Unknown/wired competition',       mid:'Open market; know how to compete',     pos:'Sole source or customer prefers us' },
   { key:'past_performance',     label:'Past Performance Match',                      weight:0.10,
     neg:'No relevant past performance',    mid:'Some relevant experience',             pos:'Strong directly relevant references' },
-  { key:'eligibility',          label:'Set-Aside / Eligibility',                    weight:0.10,
+  { key:'eligibility',          label:'Set-Aside / Eligibility',                    weight:0.08,
     neg:'Not eligible or disadvantaged',   mid:'Eligible but no preference',           pos:'Preferred or sole-source eligible' },
   { key:'strategic_value',      label:"Program's Strategic Advantage",              weight:0.05,
     neg:'Low strategic value',             mid:'Average strategic value',              pos:'High value / growth platform' },
   { key:'scope_clarity',        label:'Ability to Respond (Scope Clarity)',         weight:0.05,
     neg:"Don't understand the problem",    mid:'Understand and can respond',           pos:'Can meet and exceed every requirement' },
 ];
+// Tier 1 total: 50%
 const BNA_TIER2 = [
   { key:'customer_rapport', label:'Customer Knowledge & Rapport',          weight:0.15,
     neg:'Unknown; no relationship',        mid:'Known but not cultivated',             pos:'Good relationship; know real needs' },
@@ -4638,45 +4667,57 @@ const BNA_TIER2 = [
     neg:'Second-best or diluting scope',   mid:'Best available, no scope impact',      pos:'Best team, available, ready' },
   { key:'price_strategy',   label:'Price Strategy',                        weight:0.10,
     neg:'Must guess or cut corners',       mid:'Reasonable; good idea of price to win',pos:'Honest, credible, know price to win' },
-  { key:'resources',        label:'Resources Available (Proposal & Exec)', weight:0.05,
+  { key:'resources',        label:'Resources Available (Proposal & Exec)', weight:0.10,
     neg:'Not available',                   mid:'Available with effort',                pos:'Readily available or not needed' },
-  { key:'market_intel',     label:'Market Intelligence',                   weight:0.05,
-    neg:'Surprised by RFP; no background', mid:'Generally current on market',          pos:'Inside track; well-prepared workup' },
 ];
+// Tier 2 total: 50%
 const BNA_THRESHOLD = 7.5;
 let bna_tier1_scores = {};
 let bna_tier2_scores = {};
 
-function calcBnaScore() {
-  let t1 = 0, t2 = 0;
-  BNA_TIER1.forEach(f => { t1 += (bna_tier1_scores[f.key] || 0) * f.weight; });
-  BNA_TIER2.forEach(f => { t2 += (bna_tier2_scores[f.key] != null ? bna_tier2_scores[f.key] : 5) * f.weight; });
-  return { t1: t1 * 2, t2: t2 * 2, total: t1 + t2 };
-}
+// calcBnaScore is defined below after weight helpers — uses editable bna_weights
 
 function updateBnaLiveScore() {
-  const { t1, t2, total } = calcBnaScore();
-  const isBid = total >= BNA_THRESHOLD;
-  const color  = total >= 8 ? 'var(--success)' : total >= 6.5 ? '#b45309' : 'var(--error)';
-  const scoreEl   = document.getElementById('bnaScore');
-  const verdictEl = document.getElementById('bnaVerdict');
-  const t1El      = document.getElementById('tier1SubScore');
-  const t2El      = document.getElementById('tier2SubScore');
-  const totalEl   = document.getElementById('totalWeightedScore');
-  const barEl     = document.getElementById('bnaScoreBar');
-  const bannerEl  = document.getElementById('bnaVerdictBanner');
-  if (scoreEl)   { scoreEl.textContent = total.toFixed(1); scoreEl.style.color = color; }
-  if (t1El)      t1El.textContent = t1.toFixed(1);
-  if (t2El)      t2El.textContent = t2.toFixed(1);
-  if (totalEl)   { totalEl.textContent = total.toFixed(1); totalEl.style.color = color; }
-  if (barEl)     { barEl.style.width = Math.min((total/10)*100, 100)+'%'; barEl.style.background = color; }
-  if (verdictEl) {
-    verdictEl.textContent = isBid ? '✅ BID' : total >= 6.5 ? '⚠️ CONDITIONAL — Needs Review' : '❌ NO BID';
-    verdictEl.style.color = color;
+  const { t1, t2, t1raw, t2raw, total } = calcBnaScore();
+  const color = total >= 8.5 ? 'var(--success)' : total >= 7.5 ? '#2563eb' : total >= 6.0 ? '#b45309' : 'var(--error)';
+  const bg    = total >= 8.5 ? '#f0fdf4' : total >= 7.5 ? '#eff6ff' : total >= 6.0 ? '#fefce8' : '#fef2f2';
+  const bord  = total >= 8.5 ? '#86efac'  : total >= 7.5 ? '#bfdbfe'  : total >= 6.0 ? '#fde047'  : '#fca5a5';
+
+  // Nuanced verdict text
+  let verdictText;
+  if (total >= 8.5)      verdictText = '✅ STRONG BID — Pursue aggressively';
+  else if (total >= 7.5) verdictText = '✅ BID — Favorable opportunity, allocate resources';
+  else if (total >= 6.5) verdictText = '⚠️ MARGINAL BID — Proceed with lean investment; address gaps first';
+  else if (total >= 5.5) verdictText = '⚠️ CONDITIONAL — Resolve major risks before committing';
+  else                   verdictText = '❌ NO BID — Opportunity does not meet threshold';
+
+  const scoreEl  = document.getElementById('bnaScore');
+  const verdictEl= document.getElementById('bnaVerdict');
+  const t1El     = document.getElementById('tier1SubScore');
+  const t2El     = document.getElementById('tier2SubScore');
+  const totalEl  = document.getElementById('totalWeightedScore');
+  const barEl    = document.getElementById('bnaScoreBar');
+  const bannerEl = document.getElementById('bnaVerdictBanner');
+
+  if (scoreEl)  { scoreEl.textContent = total.toFixed(1); scoreEl.style.color = color; }
+  if (verdictEl){ verdictEl.textContent = verdictText; verdictEl.style.color = color; }
+  if (totalEl)  { totalEl.textContent = total.toFixed(1); totalEl.style.color = color; }
+  if (barEl)    { barEl.style.width = Math.min((total/10)*100, 100)+'%'; barEl.style.background = color; }
+  if (bannerEl) { bannerEl.style.background = bg; bannerEl.style.border = `1px solid ${bord}`; }
+
+  // Dynamic tier labels showing actual weight percentages
+  const w = getEffectiveWeights();
+  const tier1Pct = Math.round(BNA_TIER1.reduce((s,f) => s + (w[f.key]||f.weight), 0) * 100);
+  const tier2Pct = Math.round(BNA_TIER2.reduce((s,f) => s + (w[f.key]||f.weight), 0) * 100);
+  if (t1El) {
+    t1El.textContent = t1.toFixed(1);
+    const lbl = document.getElementById('tier1PctLabel');
+    if (lbl) lbl.textContent = `Auto-scored (${tier1Pct}%)`;
   }
-  if (bannerEl) {
-    bannerEl.style.background = isBid ? '#f0fdf4' : total >= 6.5 ? '#fefce8' : '#fef2f2';
-    bannerEl.style.border = `1px solid ${isBid ? '#86efac' : total >= 6.5 ? '#fde047' : '#fca5a5'}`;
+  if (t2El) {
+    t2El.textContent = t2.toFixed(1);
+    const lbl = document.getElementById('tier2PctLabel');
+    if (lbl) lbl.textContent = `Your input (${tier2Pct}%)`;
   }
 }
 
@@ -4855,18 +4896,53 @@ function _gsb(type, title, msg, showProgress) {
   document.getElementById('gsbIcon').textContent  = icons[type] || 'ℹ️';
   document.getElementById('gsbTitle').textContent = title;
   document.getElementById('gsbMsg').textContent   = msg;
+  // Also update minimized strip
+  const minIcon  = document.getElementById('gsbMinIcon');
+  const minTitle = document.getElementById('gsbMinTitle');
+  if (minIcon)  minIcon.textContent  = icons[type] || 'ℹ️';
+  if (minTitle) minTitle.textContent = title;
   const pw = document.getElementById('gsbProgressWrap');
   if (pw) pw.style.display = showProgress ? 'block' : 'none';
   bar.style.display = 'block';
+  // Make sure expanded is visible (not minimized) when a new operation starts
+  const exp = document.getElementById('gsbExpanded');
+  const min = document.getElementById('gsbMinimized');
+  if (exp) exp.style.display = 'block';
+  if (min) min.style.display = 'none';
   // Push container down so content isn't hidden behind the fixed bar
   const container = document.querySelector('.container');
   if (container) container.style.paddingTop = (showProgress ? '130px' : '80px');
+}
+
+function _gsbMinimize() {
+  const exp = document.getElementById('gsbExpanded');
+  const min = document.getElementById('gsbMinimized');
+  if (exp) exp.style.display = 'none';
+  if (min) min.style.display = 'flex';
+  // Shrink container padding since bar is now just a thin strip
+  const container = document.querySelector('.container');
+  if (container) container.style.paddingTop = '40px';
+}
+
+function _gsbExpand() {
+  const exp = document.getElementById('gsbExpanded');
+  const min = document.getElementById('gsbMinimized');
+  if (exp) exp.style.display = 'block';
+  if (min) min.style.display = 'none';
+  const hasProg = document.getElementById('gsbProgressWrap')?.style.display !== 'none';
+  const container = document.querySelector('.container');
+  if (container) container.style.paddingTop = (hasProg ? '130px' : '80px');
 }
 
 // Call when dismissing the bar to restore normal padding
 function _gsbHide() {
   const bar = document.getElementById('globalStatusBar');
   if (bar) bar.style.display = 'none';
+  // Reset minimized state for next time
+  const exp = document.getElementById('gsbExpanded');
+  const min = document.getElementById('gsbMinimized');
+  if (exp) exp.style.display = 'block';
+  if (min) min.style.display = 'none';
   const container = document.querySelector('.container');
   if (container) container.style.paddingTop = ''; // restore CSS default (32px)
 }
@@ -4881,12 +4957,21 @@ function showBnaStatus(type, title, msg, showProgress = false) {
   showStatus(type, title, msg, showProgress);
 }
 function setBnaProgress(pct, etaText) {
+  const pctClamped = Math.min(pct, 100);
   const fill  = document.getElementById('gsbFill');
   const pctEl = document.getElementById('gsbPct');
   const etaEl = document.getElementById('gsbEta');
-  if (fill)  fill.style.width = Math.min(pct, 100) + '%';
-  if (pctEl) pctEl.textContent = Math.round(Math.min(pct, 100)) + '%';
-  if (etaEl && etaText !== undefined) etaEl.textContent = etaText;
+  const minF  = document.getElementById('gsbMinFill');
+  const minP  = document.getElementById('gsbMinPct');
+  const minE  = document.getElementById('gsbMinEta');
+  if (fill)  fill.style.width  = pctClamped + '%';
+  if (pctEl) pctEl.textContent = Math.round(pctClamped) + '%';
+  if (minF)  minF.style.width  = pctClamped + '%';
+  if (minP)  minP.textContent  = Math.round(pctClamped) + '%';
+  if (etaText !== undefined) {
+    if (etaEl) etaEl.textContent = etaText;
+    if (minE)  minE.textContent  = etaText;
+  }
 }
 function _ensureBnaProgressVisible() {
   const pw  = document.getElementById('gsbProgressWrap');
